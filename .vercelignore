@@ -1,0 +1,22 @@
+# Vercel build — exclude everything not needed in the static bundle
+.env
+.env.*
+.gev-cache/
+.gev-logs/
+.git/
+.github/
+.agents/
+docs/
+pinokio/
+tools/
+scripts/
+workers/
+compose.yaml
+Dockerfile
+CHANGELOG.md
+CONTRIBUTING.md
+DATA_SOURCES.md
+SECURITY.md
+TESTING.md
+THIRD_PARTY_NOTICES.md
+README.md

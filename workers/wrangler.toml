@@ -1,0 +1,34 @@
+name = "gods-eye-view-api"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ── KV namespace for persistent caching (optional, add when needed) ──────────
+# Create the namespace first: wrangler kv:namespace create GEV_CACHE
+# Then paste the returned id below and uncomment.
+# [[kv_namespaces]]
+# binding = "GEV_CACHE"
+# id = "PASTE_KV_NAMESPACE_ID_HERE"
+
+# ── Non-secret runtime variables ─────────────────────────────────────────────
+[vars]
+VITE_AIS_LIVE_MAX_ROWS     = "12000"
+OPENAI_REALTIME_MODEL      = "gpt-realtime-2"
+OPENAI_REALTIME_MODEL_MINI = "gpt-realtime-2.1-mini"
+OPENAI_REALTIME_VOICE      = "marin"
+OPENAI_REALTIME_REASONING_EFFORT  = "low"
+OPENAI_REALTIME_CONTEXT_TOKENS    = "3000"
+OPENAI_REALTIME_CONTEXT_RETENTION = "0.5"
+OPENAI_REALTIME_TRANSCRIBE_MODEL  = "gpt-4o-mini-transcribe"
+OPENAI_HUD_SUMMARY_MODEL   = "gpt-5-nano"
+OPENSKY_AUTH_MODE          = "oauth"
+# Secrets are set via: wrangler secret put SECRET_NAME
+# GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_SERVER_API_KEY, CESIUM_ION_TOKEN,
+# OPENAI_API_KEY, MAPILLARY_CLIENT_TOKEN, AISSTREAM_API_KEY,
+# FIRMS_MAP_KEY, TOMTOM_API_KEY, OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET,
+# LL2_API_TOKEN
+
+# ── Local dev overrides ───────────────────────────────────────────────────────
+[dev]
+port = 8787
+local_protocol = "http"

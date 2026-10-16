@@ -1,0 +1,548 @@
+function buildBcycleUrls(systemId) {
+  return {
+    stationInformationUrl: `https://gbfs.bcycle.com/${systemId}/station_information.json`,
+    stationStatusUrl: `https://gbfs.bcycle.com/${systemId}/station_status.json`,
+  };
+}
+function bcycleEntry({
+  id,
+  city,
+  centerLat,
+  centerLon,
+  systemId,
+  loadRadiusKm = 100,
+  provider = 'BCycle',
+}) {
+  return {
+    id,
+    city,
+    centerLat,
+    centerLon,
+    loadRadiusKm,
+    provider,
+    ...buildBcycleUrls(systemId),
+  };
+}
+function urbanSharingEntry({
+  id,
+  city,
+  centerLat,
+  centerLon,
+  systemId,
+  provider,
+  loadRadiusKm = 100,
+}) {
+  return {
+    id,
+    city,
+    centerLat,
+    centerLon,
+    loadRadiusKm,
+    provider,
+    stationInformationUrl: `https://gbfs.urbansharing.com/${systemId}/station_information.json`,
+    stationStatusUrl: `https://gbfs.urbansharing.com/${systemId}/station_status.json`,
+  };
+}
+function enturEntry({
+  id,
+  city,
+  centerLat,
+  centerLon,
+  systemId,
+  provider,
+  loadRadiusKm = 100,
+}) {
+  const base = `https://api.entur.io/mobility/v2/gbfs/v2/${systemId}`;
+  return {
+    id,
+    city,
+    centerLat,
+    centerLon,
+    loadRadiusKm,
+    provider,
+    stationInformationUrl: `${base}/station_information`,
+    stationStatusUrl: `${base}/station_status`,
+  };
+}
+const RAW_GBFS_CITY_REGISTRY = [
+  {
+    id: 'nyc-citibike',
+    city: 'New York, NY',
+    centerLat: 40.7484,
+    centerLon: -73.9967,
+    loadRadiusKm: 140,
+    stationInformationUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/bkn/en/station_information.json',
+    stationStatusUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/bkn/en/station_status.json',
+    provider: 'Citi Bike',
+  },
+  {
+    id: 'chicago-divvy',
+    city: 'Chicago, IL',
+    centerLat: 41.8781,
+    centerLon: -87.6298,
+    loadRadiusKm: 120,
+    stationInformationUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/chi/en/station_information.json',
+    stationStatusUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/chi/en/station_status.json',
+    provider: 'Divvy',
+  },
+  {
+    id: 'detroit-mogo',
+    city: 'Detroit, MI',
+    centerLat: 42.3314,
+    centerLon: -83.0458,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://detroit.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://detroit.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'MoGo',
+  },
+  {
+    id: 'pittsburgh-pogoh',
+    city: 'Pittsburgh, PA',
+    centerLat: 40.4406,
+    centerLon: -79.9959,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://pittsburgh.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://pittsburgh.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'POGOH',
+  },
+  {
+    id: 'aspen-we-cycle',
+    city: 'Aspen, CO',
+    centerLat: 39.1911,
+    centerLon: -106.8175,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://aspen.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://aspen.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'WE-cycle',
+  },
+  // HIBike serves both Kailua-Kona and Hilo, about 95 km apart; the centre sits
+  // between them so a camera over either town loads the whole system.
+  {
+    id: 'hawaii-island-hibike',
+    city: 'Kona & Hilo, HI',
+    centerLat: 19.68,
+    centerLon: -155.54,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://kona.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://kona.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'HIBike',
+  },
+  {
+    id: 'dc-capital-bikeshare',
+    city: 'Washington, DC',
+    centerLat: 38.9072,
+    centerLon: -77.0369,
+    loadRadiusKm: 120,
+    stationInformationUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/dca-cabi/en/station_information.json',
+    stationStatusUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/dca-cabi/en/station_status.json',
+    provider: 'Capital Bikeshare',
+  },
+  {
+    id: 'sf-bay-wheels',
+    city: 'San Francisco, CA',
+    centerLat: 37.7749,
+    centerLon: -122.4194,
+    loadRadiusKm: 110,
+    stationInformationUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/bay/en/station_information.json',
+    stationStatusUrl:
+      'https://gbfs.lyft.com/gbfs/2.3/bay/en/station_status.json',
+    provider: 'Bay Wheels',
+  },
+  {
+    id: 'boston-bluebikes',
+    city: 'Boston, MA',
+    centerLat: 42.3601,
+    centerLon: -71.0589,
+    loadRadiusKm: 100,
+    stationInformationUrl:
+      'https://gbfs.bluebikes.com/gbfs/en/station_information.json',
+    stationStatusUrl: 'https://gbfs.bluebikes.com/gbfs/en/station_status.json',
+    provider: 'Blue Bikes',
+  },
+  {
+    id: 'philadelphia-indego',
+    city: 'Philadelphia, PA',
+    centerLat: 39.9526,
+    centerLon: -75.1652,
+    loadRadiusKm: 100,
+    stationInformationUrl:
+      'https://gbfs.bcycle.com/bcycle_indego/station_information.json',
+    stationStatusUrl:
+      'https://gbfs.bcycle.com/bcycle_indego/station_status.json',
+    provider: 'Indego',
+  },
+  {
+    id: 'portland-biketown',
+    city: 'Portland, OR',
+    centerLat: 45.5152,
+    centerLon: -122.6784,
+    loadRadiusKm: 95,
+    stationInformationUrl:
+      'https://gbfs.biketownpdx.com/gbfs/2.3/en/station_information.json',
+    stationStatusUrl:
+      'https://gbfs.biketownpdx.com/gbfs/2.3/en/station_status.json',
+    provider: 'BIKETOWN',
+  },
+  {
+    id: 'la-metro-bike',
+    city: 'Los Angeles, CA',
+    centerLat: 34.0522,
+    centerLon: -118.2437,
+    loadRadiusKm: 120,
+    stationInformationUrl:
+      'https://gbfs.bcycle.com/bcycle_lametro/station_information.json',
+    stationStatusUrl:
+      'https://gbfs.bcycle.com/bcycle_lametro/station_status.json',
+    provider: 'Metro Bike',
+  },
+  {
+    id: 'austin-capmetro',
+    city: 'Austin, TX',
+    centerLat: 30.2672,
+    centerLon: -97.7431,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://austin.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://austin.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'CapMetro',
+  },
+  {
+    id: 'honolulu-biki',
+    city: 'Honolulu, HI',
+    centerLat: 21.3069,
+    centerLon: -157.8583,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://hon.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://hon.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'Biki',
+  },
+  {
+    id: 'chattanooga-bikechatt',
+    city: 'Chattanooga, TN',
+    centerLat: 35.0456,
+    centerLon: -85.3097,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://chat.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://chat.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'Bike Chattanooga',
+  },
+  {
+    id: 'toronto-bike-share',
+    city: 'Toronto, ON',
+    centerLat: 43.6532,
+    centerLon: -79.3832,
+    loadRadiusKm: 90,
+    stationInformationUrl:
+      'https://toronto.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://toronto.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'Bike Share Toronto',
+  },
+  bcycleEntry({
+    id: 'boulder-bcycle',
+    city: 'Boulder, CO',
+    centerLat: 40.015,
+    centerLon: -105.2705,
+    systemId: 'bcycle_boulder',
+  }),
+  bcycleEntry({
+    id: 'milwaukee-bublr',
+    city: 'Milwaukee, WI',
+    centerLat: 43.0389,
+    centerLon: -87.9065,
+    systemId: 'bcycle_bublr',
+    provider: 'Bublr',
+  }),
+  bcycleEntry({
+    id: 'madison-bcycle',
+    city: 'Madison, WI',
+    centerLat: 43.0731,
+    centerLon: -89.4012,
+    systemId: 'bcycle_madison',
+  }),
+  bcycleEntry({
+    id: 'nashville-bcycle',
+    city: 'Nashville, TN',
+    centerLat: 36.1627,
+    centerLon: -86.7816,
+    systemId: 'bcycle_nashville',
+  }),
+  bcycleEntry({
+    id: 'salt-lake-greenbike',
+    city: 'Salt Lake City, UT',
+    centerLat: 40.7608,
+    centerLon: -111.891,
+    systemId: 'bcycle_greenbikeslc',
+    provider: 'GREENbike',
+  }),
+  bcycleEntry({
+    id: 'san-antonio-bcycle',
+    city: 'San Antonio, TX',
+    centerLat: 29.4241,
+    centerLon: -98.4936,
+    systemId: 'bcycle_sanantonio',
+  }),
+  bcycleEntry({
+    id: 'cincinnati-red-bike',
+    city: 'Cincinnati, OH',
+    centerLat: 39.1031,
+    centerLon: -84.512,
+    systemId: 'bcycle_cincyredbike',
+    provider: 'Red Bike',
+  }),
+  bcycleEntry({
+    id: 'el-paso-bcycle',
+    city: 'El Paso, TX',
+    centerLat: 31.7619,
+    centerLon: -106.485,
+    systemId: 'bcycle_elpaso',
+  }),
+  bcycleEntry({
+    id: 'indianapolis-pacers',
+    city: 'Indianapolis, IN',
+    centerLat: 39.7684,
+    centerLon: -86.1581,
+    systemId: 'bcycle_pacersbikeshare',
+    provider: 'Pacers Bikeshare',
+  }),
+  bcycleEntry({
+    id: 'memphis-bcycle',
+    city: 'Memphis, TN',
+    centerLat: 35.1495,
+    centerLon: -90.049,
+    systemId: 'bcycle_memphis',
+  }),
+  bcycleEntry({
+    id: 'des-moines-bcycle',
+    city: 'Des Moines, IA',
+    centerLat: 41.5868,
+    centerLon: -93.625,
+    systemId: 'bcycle_desmoines',
+  }),
+  {
+    // Tugo moved off BCycle to PBSC; the bcycle_tugo feed is gone (404).
+    id: 'tucson-tugo',
+    city: 'Tucson, AZ',
+    centerLat: 32.2226,
+    centerLon: -110.9747,
+    loadRadiusKm: 100,
+    stationInformationUrl:
+      'https://tucson.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://tucson.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'Tugo',
+  },
+  {
+    // Trinity Metro moved off BCycle to PBSC; the bcycle_fortworth feed is gone.
+    id: 'fort-worth-trinity',
+    city: 'Fort Worth, TX',
+    centerLat: 32.7555,
+    centerLon: -97.3308,
+    loadRadiusKm: 100,
+    stationInformationUrl:
+      'https://fortworth.publicbikesystem.net/customer/gbfs/v2/en/station_information.json',
+    stationStatusUrl:
+      'https://fortworth.publicbikesystem.net/customer/gbfs/v2/en/station_status.json',
+    provider: 'Trinity Metro',
+  },
+  bcycleEntry({
+    id: 'omaha-heartland',
+    city: 'Omaha, NE',
+    centerLat: 41.2565,
+    centerLon: -95.9345,
+    systemId: 'bcycle_heartland',
+    provider: 'Heartland B-cycle',
+  }),
+  bcycleEntry({
+    id: 'lincoln-bikelnk',
+    city: 'Lincoln, NE',
+    centerLat: 40.8136,
+    centerLon: -96.7026,
+    systemId: 'bcycle_bikelnk',
+    provider: 'BikeLNK',
+  }),
+  bcycleEntry({
+    id: 'greenville-sc-bcycle',
+    city: 'Greenville, SC',
+    centerLat: 34.8526,
+    centerLon: -82.394,
+    systemId: 'bcycle_greenville',
+  }),
+  {
+    // Reddy left BCycle for Social Bicycles; the bcycle_reddy feed is gone
+    // (404). This is the endpoint the MobilityData GBFS registry lists.
+    id: 'buffalo-reddy',
+    city: 'Buffalo, NY',
+    centerLat: 42.8864,
+    centerLon: -78.8784,
+    loadRadiusKm: 100,
+    stationInformationUrl:
+      'https://reddybikeshare.socialbicycles.com/opendata/station_information.json',
+    stationStatusUrl:
+      'https://reddybikeshare.socialbicycles.com/opendata/station_status.json',
+    provider: 'Reddy Bikeshare',
+  },
+  bcycleEntry({
+    id: 'las-vegas-rtc-bike-share',
+    city: 'Las Vegas, NV',
+    centerLat: 36.1699,
+    centerLon: -115.1398,
+    systemId: 'bcycle_rtcbikeshare',
+    provider: 'RTC Bike Share',
+  }),
+  bcycleEntry({
+    id: 'santa-barbara-bcycle',
+    city: 'Santa Barbara, CA',
+    centerLat: 34.4208,
+    centerLon: -119.6982,
+    systemId: 'bcycle_santabarbara',
+  }),
+  urbanSharingEntry({
+    id: 'oslo-bysykkel',
+    city: 'Oslo, Norway',
+    centerLat: 59.9139,
+    centerLon: 10.7522,
+    systemId: 'oslobysykkel.no',
+    provider: 'Oslo Bysykkel',
+  }),
+  urbanSharingEntry({
+    id: 'bergen-bysykkel',
+    city: 'Bergen, Norway',
+    centerLat: 60.3913,
+    centerLon: 5.3221,
+    systemId: 'bergenbysykkel.no',
+    provider: 'Bergen Bysykkel',
+  }),
+  urbanSharingEntry({
+    id: 'trondheim-bysykkel',
+    city: 'Trondheim, Norway',
+    centerLat: 63.4305,
+    centerLon: 10.3951,
+    systemId: 'trondheimbysykkel.no',
+    provider: 'Trondheim Bysykkel',
+  }),
+  enturEntry({
+    id: 'stavanger-kolumbus',
+    city: 'Stavanger, Norway',
+    centerLat: 58.9,
+    centerLon: 5.72,
+    systemId: 'kolumbusbysykkel',
+    provider: 'Kolumbus Bysykkel',
+  }),
+  enturEntry({
+    id: 'skien-farte',
+    city: 'Skien/Porsgrunn, Norway',
+    centerLat: 59.16,
+    centerLon: 9.64,
+    systemId: 'fartebysykkel',
+    provider: 'Farte Bysykkel',
+    loadRadiusKm: 40,
+  }),
+  {
+    id: 'lillestrom-bysykkel',
+    city: 'Lillestrøm, Norway',
+    centerLat: 59.9556,
+    centerLon: 11.0492,
+    loadRadiusKm: 40,
+    stationInformationUrl:
+      'https://api.cyclocity.fr/contracts/lillestrom/gbfs/station_information.json',
+    stationStatusUrl:
+      'https://api.cyclocity.fr/contracts/lillestrom/gbfs/station_status.json',
+    provider: 'Bysykkel Lillestrøm',
+  },
+];
+function normalizeRegistryEntry(entry) {
+  const id = String(entry?.id || '')
+    .trim()
+    .toLowerCase();
+  const city = String(entry?.city || '').trim();
+  const centerLat = Number(entry?.centerLat);
+  const centerLon = Number(entry?.centerLon);
+  const loadRadiusKm = Number(entry?.loadRadiusKm);
+  const stationInformationUrl = new URL(
+    String(entry?.stationInformationUrl || '').trim(),
+  );
+  const stationStatusUrl = new URL(
+    String(entry?.stationStatusUrl || '').trim(),
+  );
+
+  if (!id) throw new Error('GBFS entry id is required');
+  if (!city) throw new Error(`GBFS entry "${id}" city is required`);
+  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon)) {
+    throw new Error(`GBFS entry "${id}" has invalid center coordinates`);
+  }
+  // Enforce HTTPS-only for GBFS feeds
+  if (
+    stationInformationUrl.protocol !== 'https:' ||
+    stationStatusUrl.protocol !== 'https:'
+  ) {
+    throw new Error(`GBFS entry "${id}" must use https URLs`);
+  }
+  // Validate that URLs end with expected GBFS endpoint names (Entur omits .json)
+  if (
+    !/\/station_information(\.json)?$/i.test(stationInformationUrl.pathname)
+  ) {
+    throw new Error(`GBFS entry "${id}" station_information URL is invalid`);
+  }
+  if (!/\/station_status(\.json)?$/i.test(stationStatusUrl.pathname)) {
+    throw new Error(`GBFS entry "${id}" station_status URL is invalid`);
+  }
+
+  // Deduplicate hostnames across both feed URLs for proxy allowlisting
+  const hosts = Array.from(
+    new Set([
+      stationInformationUrl.hostname.toLowerCase(),
+      stationStatusUrl.hostname.toLowerCase(),
+    ]),
+  );
+
+  return {
+    id,
+    city,
+    centerLat,
+    centerLon,
+    loadRadiusKm:
+      Number.isFinite(loadRadiusKm) && loadRadiusKm > 0
+        ? loadRadiusKm
+        : CITY_RANGE_BASE_KM,
+    stationInformationUrl: stationInformationUrl.toString(),
+    stationStatusUrl: stationStatusUrl.toString(),
+    provider: String(entry?.provider || 'GBFS').trim() || 'GBFS',
+    hosts,
+  };
+}
+const GBFS_CITY_REGISTRY = (() => {
+  const seen = new Set();
+  return RAW_GBFS_CITY_REGISTRY.map((entry) => {
+    const normalized = normalizeRegistryEntry(entry);
+    if (seen.has(normalized.id)) {
+      throw new Error(`Duplicate GBFS city id: ${normalized.id}`);
+    }
+    seen.add(normalized.id);
+    return normalized;
+  });
+})();
+const CITY_BY_ID = new Map(
+  GBFS_CITY_REGISTRY.map((entry) => [entry.id, entry]),
+);
+export { GBFS_CITY_REGISTRY, CITY_BY_ID };

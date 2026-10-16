@@ -1,0 +1,16 @@
+{
+  "name": "gods-eye-view-workers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Workers API layer for gods-eye-view",
+  "scripts": {
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
+    "tail": "npx wrangler tail",
+    "bundle:dashboard": "npx esbuild src/index.js --bundle --format=esm --platform=browser --target=es2022 --outfile=dist/worker.bundle.js --minify-whitespace"
+  },
+  "devDependencies": {
+    "wrangler": "^3.95.0"
+  }
+}
