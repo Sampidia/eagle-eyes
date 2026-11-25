@@ -390,6 +390,35 @@ export function createCards({ state: layerState, services, parts, source }) {
     layerState._cardFetchPendingIds.clear();
     layerState._cardFetchInFlightCount = 0;
   }
+  function syncSettledFrame(cameraId, image) {
+    if (!layerState._enabled || !cameraId || !image) return;
+    const slot = layerState._cardFrameSlots?.get(cameraId);
+    if (slot) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = CCTV_FRAME_CANVAS_W;
+        canvas.height = CCTV_FRAME_CANVAS_H;
+        canvas
+          .getContext('2d')
+          .drawImage(image, 0, 0, canvas.width, canvas.height);
+        Object.assign(
+          slot,
+          applyFrameResult(slot, { ok: true, frame: canvas }, Date.now()),
+        );
+      } catch {
+        // Ignore tainted-canvas errors if upstream image lacks CORS
+      }
+    }
+    const record = layerState._recordById?.get(cameraId);
+    if (record?.projection && !record.projection.video && record.projection.image) {
+      record.projection.image = image;
+      record.projection.imageLoading = false;
+      record.projection.imageReady = true;
+      record.projection.imageStamp = Date.now();
+      record.projection.lastImageRefreshAt = Date.now();
+    }
+    layerState._viewer?.scene?.requestRender?.();
+  }
   return {
     handleVisibilityChange,
     setCctvCardPresentationOptions,
@@ -397,6 +426,7 @@ export function createCards({ state: layerState, services, parts, source }) {
     refreshAmbientCards,
     pushAmbientCardEntries,
     fetchCardFrame,
+    syncSettledFrame,
     startCardFrameLoop,
     stopCardFrameLoop,
     teardownAmbientCards,

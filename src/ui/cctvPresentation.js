@@ -49,6 +49,9 @@ export function _renderCctvState(state) {
   // below can detect camera changes accurately.
   const prevEffectiveActiveId = this._lastSeenCctvActiveId;
   this._lastSeenCctvActiveId = effectiveActiveId;
+  if (prevEffectiveActiveId !== effectiveActiveId) {
+    this._liveHistoryIndex = -1;
+  }
 
   this._updateCctvSyncChip(state?.loading, enabled);
 
@@ -245,6 +248,7 @@ export function _renderCctvState(state) {
   }
 
   this._syncCctvSourceBadge(activeCamera, enabled);
+  this._updateLiveFrameHud?.();
   this._typeCctvSummary(
     state?.summary ||
       'Enable CCTV to start camera-linked intelligence summaries.',

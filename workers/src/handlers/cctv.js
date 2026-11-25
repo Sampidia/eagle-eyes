@@ -319,7 +319,7 @@ export async function handleCctv(request, env = {}) {
       { ...cached, sources: enrichedSources, cameras: enrichedSources },
       {
         headers: {
-          'Cache-Control': `public, max-age=${Math.floor(CATALOG_TTL_MS / 1000)}`,
+          'Cache-Control': 'no-store',
           'X-GEV-Cache': 'HIT',
         },
       },
@@ -356,7 +356,7 @@ export async function handleCctv(request, env = {}) {
   cacheSet('cctv:catalog', payload);
   return Response.json(payload, {
     headers: {
-      'Cache-Control': `public, max-age=${Math.floor(CATALOG_TTL_MS / 1000)}`,
+      'Cache-Control': 'no-store',
       'X-GEV-Cache': 'MISS',
     },
   });

@@ -150,6 +150,10 @@ export function _initCctvPanel() {
     this._resetCctvCalibration();
   });
 
+  // ── Live saved-frame history bindings ────────────────────────────────────
+  this.listen(this._cctvFramePrev, 'click', () => this._stepLiveFrame(-1));
+  this.listen(this._cctvFrameNext, 'click', () => this._stepLiveFrame(1));
+
   // ── Archive mode pill bindings ──────────────────────────────────────────
   this.listen(this._cctvModeLive, 'click', () => this._setArchiveMode('live'));
   this.listen(this._cctvMode24h,  'click', () => this._setArchiveMode('24h'));
@@ -231,12 +235,15 @@ export function _setArchiveMode(mode) {
       this._cctvArchiveVideo.hidden = true;
     }
     if (this._cctvPlayerControls) this._cctvPlayerControls.hidden = true;
+    if (this._cctvLiveControls)   this._cctvLiveControls.hidden   = false;
     // Re-run live render (restores live frame/video)
     this._renderCctvState(this._cctvState);
+    this._updateLiveFrameHud?.();
   } else {
     // Hide live elements, show archive player
     if (this._cctvFrame) this._cctvFrame.hidden = true;
     if (this._cctvVideo) this._cctvVideo.hidden = true;
+    if (this._cctvLiveControls)   this._cctvLiveControls.hidden   = true;
     if (this._cctvPlayerControls) this._cctvPlayerControls.hidden = false;
     if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
 
@@ -269,5 +276,70 @@ export function _updateArchivePlayerHud() {
   if (this._cctvTimeTotal)   this._cctvTimeTotal.textContent   = formatHMS(dur);
   if (this._cctvScrubber && dur > 0) {
     this._cctvScrubber.value = String((cur / dur) * 100);
+  }
+}
+
+/**
+ * Step backward (-1) or forward (+1) through saved live frames in memory.
+ * Called on `this` (a CctvControls instance).
+ */
+export function _stepLiveFrame(delta) {
+  if (this.destroyed) return;
+  const cameraId = this._cctvState?.activeCameraId || this._cctvFrame?.dataset?.cameraId || '';
+  const history = cameraId ? this._liveFrameHistory?.get(cameraId) : null;
+  if (!history || history.length === 0) return;
+
+  const currentIdx =
+    this._liveHistoryIndex >= 0 && this._liveHistoryIndex < history.length
+      ? this._liveHistoryIndex
+      : history.length - 1;
+
+  const nextIdx = Math.max(0, Math.min(history.length - 1, currentIdx + delta));
+  // If we reached the latest frame, return to auto-follow (-1)
+  this._liveHistoryIndex = nextIdx === history.length - 1 ? -1 : nextIdx;
+
+  const entry = history[nextIdx];
+  if (this._cctvFrame && entry) {
+    this._cctvFrame.src = entry.dataUrl || entry.src;
+    this._cctvFrame.classList.add('active');
+    this._cctvFrameWrap?.classList.add('has-frame');
+  }
+  this._updateLiveFrameHud();
+}
+
+/**
+ * Update PREV / NEXT button states and counter for saved live frames.
+ * NEXT is unclickable (disabled) whenever the latest frame is on display.
+ * Called on `this` (a CctvControls instance).
+ */
+export function _updateLiveFrameHud() {
+  const enabled = !!this._cctvState?.enabled && !!this.actions.isEnabled();
+  const cameraId = this._cctvState?.activeCameraId || this._cctvFrame?.dataset?.cameraId || '';
+  const history = enabled && cameraId ? this._liveFrameHistory?.get(cameraId) : null;
+  const total = history?.length || 0;
+
+  if (!enabled || total === 0) {
+    if (this._cctvFramePrev) this._cctvFramePrev.disabled = true;
+    if (this._cctvFrameNext) this._cctvFrameNext.disabled = true;
+    if (this._cctvFrameCounter) this._cctvFrameCounter.textContent = 'LIVE · --';
+    return;
+  }
+
+  const idx =
+    this._liveHistoryIndex >= 0 && this._liveHistoryIndex < total
+      ? this._liveHistoryIndex
+      : total - 1;
+  const isLatest = idx >= total - 1;
+
+  if (this._cctvFramePrev) this._cctvFramePrev.disabled = idx <= 0;
+  if (this._cctvFrameNext) this._cctvFrameNext.disabled = isLatest;
+
+  if (this._cctvFrameCounter) {
+    if (isLatest) {
+      this._cctvFrameCounter.textContent = `LIVE · ${total}/${total}`;
+    } else {
+      const ts = new Date(history[idx].timestamp).toTimeString().slice(0, 8);
+      this._cctvFrameCounter.textContent = `${idx + 1}/${total} · ${ts}`;
+    }
   }
 }

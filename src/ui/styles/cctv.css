@@ -316,6 +316,7 @@
 #cctv-frame[hidden],
 #cctv-video[hidden],
 #cctv-archive-video[hidden],
+.cctv-live-controls[hidden],
 .cctv-player-controls[hidden] {
   display: none;
 }
@@ -477,6 +478,22 @@
 .cctv-playback-row {
   display: flex;
   gap: 6px;
+}
+
+.cctv-live-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: rgba(0, 20, 30, 0.35);
+  border: 1px solid rgba(0, 212, 255, 0.14);
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+.cctv-live-controls .cctv-time-label {
+  flex: 1;
+  text-align: center;
 }
 
 .cctv-playback-btn {

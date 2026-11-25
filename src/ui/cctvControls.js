@@ -20,6 +20,8 @@ import {
   _initCctvPanel,
   _setArchiveMode,
   _updateArchivePlayerHud,
+  _stepLiveFrame,
+  _updateLiveFrameHud,
 } from './cctvBindings.js';
 
 /** Own camera-panel interaction and presentation; receive the camera port and application actions. */
@@ -42,6 +44,8 @@ export class CctvControls {
     this._calibrationEdit = null;
     this._actionGeneration = 0;
     this._archiveMode = 'live'; // 'live' | '24h' | '48h'
+    this._liveFrameHistory = new Map();
+    this._liveHistoryIndex = -1; // -1 = following latest frame
     this._initCctvPanel();
     if (this._cctvVideo && typeof MutationObserver !== 'undefined') {
       this._videoVisibilityObserver = new MutationObserver(() =>
@@ -119,6 +123,12 @@ export class CctvControls {
   }
   _updateArchivePlayerHud(...args) {
     return _updateArchivePlayerHud.call(this, ...args);
+  }
+  _stepLiveFrame(...args) {
+    return _stepLiveFrame.call(this, ...args);
+  }
+  _updateLiveFrameHud(...args) {
+    return _updateLiveFrameHud.call(this, ...args);
   }
   destroy() {
     if (this.destroyed) return;

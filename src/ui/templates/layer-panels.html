@@ -32,6 +32,11 @@
         <canvas id="cctv-video" class="cctv-frame" hidden></canvas>
         <video id="cctv-archive-video" class="cctv-frame" playsinline preload="metadata" hidden></video>
       </div>
+      <div id="cctv-live-controls" class="cctv-live-controls">
+        <button id="cctv-frame-prev" class="scene-btn cctv-playback-btn" disabled title="Previous saved live frame">◀ PREV</button>
+        <span id="cctv-frame-counter" class="cctv-time-label">LIVE · --</span>
+        <button id="cctv-frame-next" class="scene-btn cctv-playback-btn" disabled title="Next saved live frame">NEXT ▶</button>
+      </div>
       <div id="cctv-player-controls" class="cctv-player-controls" hidden>
         <div class="cctv-scrub-row">
           <span id="cctv-time-elapsed" class="cctv-time-label">00:00:00</span>
