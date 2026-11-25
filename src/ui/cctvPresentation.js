@@ -233,10 +233,17 @@ export function _renderCctvState(state) {
     // src every 10 seconds can cancel a slow but healthy decode forever and
     // leave SNAPSHOT · OK beside a blank/loading preview. Camera changes are
     // immediate so navigation never waits on the prior camera's request.
+    // Safety valve: if loading has been stuck > 25 s, assume it stalled and clear it.
+    const loadStart = Number(this._cctvFrame.dataset.loadStart || 0);
+    const loadStalled = frameLoading && loadStart > 0 && Date.now() - loadStart > 25_000;
+    if (loadStalled) {
+      this._cctvFrame.dataset.loading = '';
+      this._cctvFrame.dataset.loadStart = '';
+    }
     if (
       nextSrc &&
       (cameraChanged ||
-        (!frameLoading && this._cctvFrame.dataset.currentSrc !== nextSrc))
+        ((!frameLoading || loadStalled) && this._cctvFrame.dataset.currentSrc !== nextSrc))
     ) {
       this._queueCctvFrame(nextSrc, nextCameraId, cameraChanged);
     }

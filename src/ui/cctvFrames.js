@@ -11,6 +11,7 @@ export function _clearCctvFrame() {
     this._cctvFrame.dataset.cameraId = '';
     this._cctvFrame.dataset.currentSrc = '';
     this._cctvFrame.dataset.loading = '';
+    this._cctvFrame.dataset.loadStart = '';
     this._cctvFrame.dataset.error = '';
   }
   this._cctvFrameWrap?.classList.remove('loading', 'has-frame');
@@ -35,6 +36,7 @@ export function _queueCctvFrame(src, cameraId, cameraChanged) {
   this._cctvFrame.dataset.cameraId = cameraId;
   this._cctvFrame.dataset.currentSrc = src;
   this._cctvFrame.dataset.loading = 'true';
+  this._cctvFrame.dataset.loadStart = String(Date.now());
   this._cctvFrame.dataset.error = '';
   this._cctvFrameWrap?.classList.toggle(
     'loading',
@@ -79,6 +81,7 @@ export function _settleCctvFrame(token, src, ok) {
   }
   this._cctvFramePreloader = null;
   this._cctvFrame.dataset.loading = '';
+  this._cctvFrame.dataset.loadStart = '';
   this._cctvFrameWrap?.classList.remove('loading');
 
   const syncBadge = () =>

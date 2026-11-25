@@ -335,10 +335,10 @@ export function _updateLiveFrameHud() {
   if (this._cctvFrameNext) this._cctvFrameNext.disabled = isLatest;
 
   if (this._cctvFrameCounter) {
+    const ts = new Date(history[idx].timestamp).toTimeString().slice(0, 5); // HH:MM
     if (isLatest) {
-      this._cctvFrameCounter.textContent = `LIVE · ${total}/${total}`;
+      this._cctvFrameCounter.textContent = `LIVE · ${ts}`;
     } else {
-      const ts = new Date(history[idx].timestamp).toTimeString().slice(0, 8);
       this._cctvFrameCounter.textContent = `${idx + 1}/${total} · ${ts}`;
     }
   }
