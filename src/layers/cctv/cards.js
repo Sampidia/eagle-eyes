@@ -410,7 +410,7 @@ export function createCards({ state: layerState, services, parts, source }) {
       }
     }
     const record = layerState._recordById?.get(cameraId);
-    if (record?.projection && !record.projection.video && record.projection.image) {
+    if (record?.projection && !record.projection.video) {
       record.projection.image = image;
       record.projection.imageLoading = false;
       record.projection.imageReady = true;

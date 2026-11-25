@@ -75,13 +75,16 @@ export function buildSyntheticCctvSvg({ cameraId, label, city, status }) {
 </svg>`.trim();
 }
 
-/** Normalize Google Drive or raw video link into a direct streaming URL */
+/** Normalize Google Drive, Dropbox, or raw video link into a direct streaming URL */
 export function normalizeVideoUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== 'string') return '';
   const trimmed = rawUrl.trim();
   const driveMatch = trimmed.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/);
   if (driveMatch) {
     return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+  }
+  if (/dropbox\.com\//i.test(trimmed) && /[?&]dl=0\b/.test(trimmed)) {
+    return trimmed.replace(/([?&])dl=0\b/, '$1raw=1');
   }
   return trimmed;
 }
@@ -179,38 +182,22 @@ export async function handleCctv(request, env = {}) {
     }
 
     const videoUrl = normalizeVideoUrl(rawTarget);
-    const rangeHeader = request.headers.get('range');
-    const upstreamHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    };
-    if (rangeHeader) upstreamHeaders.Range = rangeHeader;
-
-    try {
-      const upstream = await fetch(videoUrl, {
-        headers: upstreamHeaders,
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      const responseHeaders = new Headers();
-      responseHeaders.set('Content-Type', upstream.headers.get('content-type') || 'video/mp4');
-      responseHeaders.set('Accept-Ranges', 'bytes');
-      responseHeaders.set('Cache-Control', 'public, max-age=3600');
-      if (upstream.headers.has('content-length')) {
-        responseHeaders.set('Content-Length', upstream.headers.get('content-length'));
-      }
-      if (upstream.headers.has('content-range')) {
-        responseHeaders.set('Content-Range', upstream.headers.get('content-range'));
-      }
-
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: responseHeaders,
-      });
-    } catch (err) {
-      console.warn('[cctv] Archive stream fetch error:', err?.message);
-      // Fallback redirect if direct streaming fails
-      return Response.redirect(videoUrl, 302);
+    if (!videoUrl) {
+      return Response.json(
+        { error: `Invalid archive URL for camera ${cameraId} (${numRange}h)` },
+        { status: 404, headers: noStore },
+      );
     }
+
+    // Redirect directly to the media host so <video> streams natively with HTTP Range support
+    // without hitting Worker stream timeouts or Vercel proxy body limits.
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: videoUrl,
+        'Cache-Control': 'no-store',
+      },
+    });
   }
 
   // 2. Frame proxy: /api/cctv/frame/:id or /api/cctv/frame?url=...

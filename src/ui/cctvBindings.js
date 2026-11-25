@@ -300,9 +300,22 @@ export function _stepLiveFrame(delta) {
 
   const entry = history[nextIdx];
   if (this._cctvFrame && entry) {
-    this._cctvFrame.src = entry.dataUrl || entry.src;
+    const frameSrc = entry.dataUrl || entry.src;
+    this._cctvFrame.src = frameSrc;
     this._cctvFrame.classList.add('active');
     this._cctvFrameWrap?.classList.add('has-frame');
+    if (typeof window !== 'undefined' && frameSrc) {
+      const syncImg = new Image();
+      syncImg.onload = () => {
+        if (this.destroyed) return;
+        window.dispatchEvent(
+          new CustomEvent('gev:cctv-frame-settled', {
+            detail: { cameraId, image: syncImg, src: entry.src },
+          }),
+        );
+      };
+      syncImg.src = frameSrc;
+    }
   }
   this._updateLiveFrameHud();
 }
@@ -321,7 +334,7 @@ export function _updateLiveFrameHud() {
   if (!enabled || total === 0) {
     if (this._cctvFramePrev) this._cctvFramePrev.disabled = true;
     if (this._cctvFrameNext) this._cctvFrameNext.disabled = true;
-    if (this._cctvFrameCounter) this._cctvFrameCounter.textContent = 'LIVE · --';
+    if (this._cctvFrameCounter) this._cctvFrameCounter.textContent = 'LIVE';
     return;
   }
 
@@ -335,11 +348,10 @@ export function _updateLiveFrameHud() {
   if (this._cctvFrameNext) this._cctvFrameNext.disabled = isLatest;
 
   if (this._cctvFrameCounter) {
-    const ts = new Date(history[idx].timestamp).toTimeString().slice(0, 5); // HH:MM
     if (isLatest) {
-      this._cctvFrameCounter.textContent = `LIVE · ${ts}`;
+      this._cctvFrameCounter.textContent = 'LIVE';
     } else {
-      this._cctvFrameCounter.textContent = `${idx + 1}/${total} · ${ts}`;
+      this._cctvFrameCounter.textContent = `${idx + 1}/${total}`;
     }
   }
 }
