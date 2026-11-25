@@ -192,15 +192,6 @@ export function _initCctvPanel() {
       const v = this._cctvArchiveVideo;
       if (v) v.currentTime = Math.min(isFinite(v.duration) ? v.duration : 0, v.currentTime + 10);
     });
-
-    // Speed cycle: 1× → 2× → 4× → 8× → 1×
-    this.listen(this._cctvSpeedBtn, 'click', () => {
-      const speeds = [1, 2, 4, 8];
-      this._archiveSpeedIdx = ((this._archiveSpeedIdx || 0) + 1) % speeds.length;
-      const spd = speeds[this._archiveSpeedIdx];
-      if (this._cctvArchiveVideo) this._cctvArchiveVideo.playbackRate = spd;
-      if (this._cctvSpeedBtn)     this._cctvSpeedBtn.textContent = `${spd}×`;
-    });
   }
 
   this._renderCctvState(null);
@@ -222,12 +213,7 @@ function formatHMS(s) {
  */
 export function _setArchiveMode(mode) {
   if (this.destroyed) return;
-  this._archiveMode     = mode;
-  this._archiveSpeedIdx = 0;
-
-  // Reset speed label and playback rate
-  if (this._cctvSpeedBtn)     this._cctvSpeedBtn.textContent = '1×';
-  if (this._cctvArchiveVideo) this._cctvArchiveVideo.playbackRate = 1;
+  this._archiveMode = mode;
 
   // Update pill active states
   for (const [el, m] of [

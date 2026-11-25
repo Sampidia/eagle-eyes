@@ -42,7 +42,6 @@ export class CctvControls {
     this._calibrationEdit = null;
     this._actionGeneration = 0;
     this._archiveMode = 'live'; // 'live' | '24h' | '48h'
-    this._archiveSpeedIdx = 0;
     this._initCctvPanel();
     if (this._cctvVideo && typeof MutationObserver !== 'undefined') {
       this._videoVisibilityObserver = new MutationObserver(() =>

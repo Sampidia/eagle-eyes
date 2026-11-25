@@ -171,7 +171,6 @@ export function readShellElements(document = globalThis.document) {
     _cctvPlayBtn: document.getElementById('cctv-play-btn'),
     _cctvSkipBack: document.getElementById('cctv-skip-back'),
     _cctvSkipFwd: document.getElementById('cctv-skip-fwd'),
-    _cctvSpeedBtn: document.getElementById('cctv-speed-btn'),
     _cctvSourceBadge: document.getElementById('cctv-source-badge'),
     _cctvMeta: document.getElementById('cctv-meta'),
     _cctvSummary: document.getElementById('cctv-summary'),

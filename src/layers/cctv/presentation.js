@@ -131,6 +131,7 @@ export function createPresentation({
       basePose: camera.basePose ? { ...camera.basePose } : null,
       frameUrl: parts.frames.frameUrlFor(camera, refreshMs),
       mediaUrl: parts.frames.mediaUrlFor(camera),
+      archives: camera.archives || null,
     };
   }
 

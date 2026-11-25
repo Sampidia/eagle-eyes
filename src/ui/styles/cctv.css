@@ -314,7 +314,9 @@
 }
 
 #cctv-frame[hidden],
-#cctv-video[hidden] {
+#cctv-video[hidden],
+#cctv-archive-video[hidden],
+.cctv-player-controls[hidden] {
   display: none;
 }
 

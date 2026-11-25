@@ -203,6 +203,10 @@ export function createCatalog({ state: layerState, services, parts, source }) {
           source.groundHeights && typeof source.groundHeights === 'object'
             ? source.groundHeights
             : null,
+        archives:
+          source.archives && typeof source.archives === 'object'
+            ? source.archives
+            : null,
         poseSource,
       };
       parts.model.ensureCameraPose(camera);
