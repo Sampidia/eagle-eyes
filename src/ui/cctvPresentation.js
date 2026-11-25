@@ -45,6 +45,9 @@ export function _renderCctvState(state) {
       explicit: Boolean(state?.explicitSelection),
     });
   }
+  // Capture the previous active ID before updating it, so the archive guard
+  // below can detect camera changes accurately.
+  const prevEffectiveActiveId = this._lastSeenCctvActiveId;
   this._lastSeenCctvActiveId = effectiveActiveId;
 
   this._updateCctvSyncChip(state?.loading, enabled);
@@ -91,6 +94,39 @@ export function _renderCctvState(state) {
   if (this._cctvFocusBtn) {
     this._cctvFocusBtn.disabled = !enabled || cameras.length === 0 || !activeId;
   }
+
+  // ── Archive pills: enable only when this camera has a recorded archive ──
+  if (this._cctvMode24h) {
+    const has24h = !!activeCamera?.archives?.has24h;
+    this._cctvMode24h.disabled = !enabled || !has24h;
+    this._cctvMode24h.title    = has24h
+      ? 'Last 24 Hours Video Archive'
+      : 'No 24h archive available for this camera';
+  }
+  if (this._cctvMode48h) {
+    const has48h = !!activeCamera?.archives?.has48h;
+    this._cctvMode48h.disabled = !enabled || !has48h;
+    this._cctvMode48h.title    = has48h
+      ? 'Last 48 Hours Video Archive'
+      : 'No 48h archive available for this camera';
+  }
+
+  // ── If the active camera changed while in archive mode, return to LIVE ──
+  if (this._archiveMode && this._archiveMode !== 'live') {
+    if (prevEffectiveActiveId !== undefined && prevEffectiveActiveId !== effectiveActiveId) {
+      this._setArchiveMode('live');
+      return; // _setArchiveMode re-calls _renderCctvState for live mode
+    }
+  }
+
+  // ── If CCTV disabled while in archive mode, snap back to LIVE ──────────
+  if (!enabled && this._archiveMode && this._archiveMode !== 'live') {
+    this._setArchiveMode('live');
+    return;
+  }
+
+  // ── Skip live frame updates when archive player is active ────────────────
+  if (this._archiveMode && this._archiveMode !== 'live') return;
 
   if (this._cctvCoverageBtn) {
     // Tri-state (viewshed design §3b): off → on (wireframes) → viewshed

@@ -22,9 +22,28 @@
         <button class="panel-collapse-btn" data-collapse-target="cctv-panel" title="Collapse panel">+</button>
       </div>
       <div class="cyber-panel-body" data-rail-scroller>
+      <div id="cctv-mode-bar" class="cctv-mode-bar">
+        <button id="cctv-mode-live" class="cctv-mode-pill active" data-mode="live">● LIVE</button>
+        <button id="cctv-mode-24h" class="cctv-mode-pill" data-mode="24h" disabled title="Last 24 Hours Video Archive">24H</button>
+        <button id="cctv-mode-48h" class="cctv-mode-pill" data-mode="48h" disabled title="Last 48 Hours Video Archive">48H</button>
+      </div>
       <div id="cctv-frame-wrap" class="cctv-frame-wrap">
         <img id="cctv-frame" alt="CCTV feed frame" />
         <canvas id="cctv-video" class="cctv-frame" hidden></canvas>
+        <video id="cctv-archive-video" class="cctv-frame" playsinline preload="metadata" hidden></video>
+      </div>
+      <div id="cctv-player-controls" class="cctv-player-controls" hidden>
+        <div class="cctv-scrub-row">
+          <span id="cctv-time-elapsed" class="cctv-time-label">00:00:00</span>
+          <input id="cctv-scrubber" type="range" class="cctv-scrubber" min="0" max="100" value="0" step="0.1" aria-label="Timeline seek" />
+          <span id="cctv-time-total" class="cctv-time-label">00:00:00</span>
+        </div>
+        <div class="cctv-playback-row">
+          <button id="cctv-skip-back" class="scene-btn cctv-playback-btn" title="Skip back 10 seconds">⏪ -10s</button>
+          <button id="cctv-play-btn" class="scene-btn cctv-playback-btn" title="Play or Pause">▶ PLAY</button>
+          <button id="cctv-skip-fwd" class="scene-btn cctv-playback-btn" title="Skip forward 10 seconds">⏩ +10s</button>
+          <button id="cctv-speed-btn" class="scene-btn cctv-playback-btn" title="Cycle playback speed">1x</button>
+        </div>
       </div>
       <div id="cctv-source-badge" role="status" aria-live="polite">SOURCE · UNKNOWN</div>
       <div id="cctv-meta">Enable CCTV to load camera intersections</div>

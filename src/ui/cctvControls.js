@@ -16,7 +16,11 @@ import {
   _typeCctvSummary,
   _updateCctvSyncChip,
 } from './cctvPresentation.js';
-import { _initCctvPanel } from './cctvBindings.js';
+import {
+  _initCctvPanel,
+  _setArchiveMode,
+  _updateArchivePlayerHud,
+} from './cctvBindings.js';
 
 /** Own camera-panel interaction and presentation; receive the camera port and application actions. */
 export class CctvControls {
@@ -37,6 +41,8 @@ export class CctvControls {
     this._cctvFramePreloader = null;
     this._calibrationEdit = null;
     this._actionGeneration = 0;
+    this._archiveMode = 'live'; // 'live' | '24h' | '48h'
+    this._archiveSpeedIdx = 0;
     this._initCctvPanel();
     if (this._cctvVideo && typeof MutationObserver !== 'undefined') {
       this._videoVisibilityObserver = new MutationObserver(() =>
@@ -108,6 +114,12 @@ export class CctvControls {
   }
   _initCctvPanel(...args) {
     return _initCctvPanel.call(this, ...args);
+  }
+  _setArchiveMode(...args) {
+    return _setArchiveMode.call(this, ...args);
+  }
+  _updateArchivePlayerHud(...args) {
+    return _updateArchivePlayerHud.call(this, ...args);
   }
   destroy() {
     if (this.destroyed) return;

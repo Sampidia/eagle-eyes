@@ -11,3 +11,6 @@ TOMTOM_API_KEY=
 OPENSKY_CLIENT_ID=
 OPENSKY_CLIENT_SECRET=
 LL2_API_TOKEN=
+# CCTV Historical Archives (example for camera austin:6)
+# CAM-austin:6-24hrs=
+# CAM-austin:6-48hrs=

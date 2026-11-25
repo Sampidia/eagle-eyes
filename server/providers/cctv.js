@@ -20,6 +20,38 @@ import { sanitizeCctvRangeHeader } from './cctv/range.js';
 import { createHlsPuller } from './cctv/stream.js';
 import { googleServerApiKey } from './places/google-key.js';
 export { CCTV_FRAME_FETCH_TIMEOUT_MS, fetchCctvImageFromUpstream };
+
+function getArchiveUrl(env, cameraId, range) {
+  if (!cameraId) return null;
+  const numRange = String(range || '24').replace(/[^0-9]/g, '') || '24';
+  const candidates = [
+    `CAM-${cameraId}-${numRange}hrs`,
+    `CAM-${cameraId}-${numRange}h`,
+    `CAM_${cameraId.replace(/[^a-zA-Z0-9]/g, '_')}_${numRange}hrs`,
+    `CAM_${cameraId.replace(/[^a-zA-Z0-9]/g, '_')}_${numRange}h`,
+  ];
+  if (env && typeof env === 'object') {
+    for (const key of candidates) {
+      if (env[key]) return env[key];
+    }
+  }
+  if (typeof process !== 'undefined' && process.env) {
+    for (const key of candidates) {
+      if (process.env[key]) return process.env[key];
+    }
+  }
+  return null;
+}
+
+function normalizeVideoUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const trimmed = rawUrl.trim();
+  const driveMatch = trimmed.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+  }
+  return trimmed;
+}
 /**
  * Vite plugin: CCTV camera proxy with source registry, frame/media serving,
  * fallback chain (upstream -> Street View -> synthetic SVG), and health tracking.
@@ -168,6 +200,16 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
               credit: source.credit || '',
               code: source.code || '',
               groundHeights: source.groundHeights || null,
+              archives: {
+                has24h: Boolean(getArchiveUrl(process.env, source.id, '24')),
+                has48h: Boolean(getArchiveUrl(process.env, source.id, '48')),
+                url24h: getArchiveUrl(process.env, source.id, '24')
+                  ? `/api/cctv/archive/${encodeURIComponent(source.id)}?range=24h`
+                  : null,
+                url48h: getArchiveUrl(process.env, source.id, '48')
+                  ? `/api/cctv/archive/${encodeURIComponent(source.id)}?range=48h`
+                  : null,
+              },
             })),
           };
           res.writeHead(200, {
@@ -175,6 +217,22 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
             'Cache-Control': 'no-store',
           });
           res.end(JSON.stringify(body));
+          return;
+        }
+
+        if (url.pathname.startsWith('/archive/')) {
+          const cameraId = decodeURIComponent(url.pathname.replace('/archive/', '').trim());
+          const rangeParam = url.searchParams.get('range') || '24';
+          const numRange = rangeParam.includes('48') ? '48' : '24';
+          const rawTarget = getArchiveUrl(process.env, cameraId, numRange);
+          if (!rawTarget) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `No archive configured for camera ${cameraId}` }));
+            return;
+          }
+          const targetUrl = normalizeVideoUrl(rawTarget);
+          res.writeHead(302, { Location: targetUrl, 'Cache-Control': 'no-store' });
+          res.end();
           return;
         }
 

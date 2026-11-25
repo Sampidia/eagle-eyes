@@ -150,6 +150,138 @@ export function _initCctvPanel() {
     this._resetCctvCalibration();
   });
 
+  // ── Archive mode pill bindings ──────────────────────────────────────────
+  this.listen(this._cctvModeLive, 'click', () => this._setArchiveMode('live'));
+  this.listen(this._cctvMode24h,  'click', () => this._setArchiveMode('24h'));
+  this.listen(this._cctvMode48h,  'click', () => this._setArchiveMode('48h'));
+
+  // ── Archive video player bindings ────────────────────────────────────────
+  if (this._cctvArchiveVideo) {
+    // Scrubber drag — seek video to the dragged position
+    this.listen(this._cctvScrubber, 'input', () => {
+      const v = this._cctvArchiveVideo;
+      if (!v || !isFinite(v.duration)) return;
+      v.currentTime = (Number(this._cctvScrubber.value) / 100) * v.duration;
+    });
+
+    // HUD refresh as the video plays or metadata arrives
+    this.listen(this._cctvArchiveVideo, 'timeupdate',    () => this._updateArchivePlayerHud());
+    this.listen(this._cctvArchiveVideo, 'loadedmetadata',() => this._updateArchivePlayerHud());
+
+    // Play / Pause toggle button
+    this.listen(this._cctvPlayBtn, 'click', () => {
+      const v = this._cctvArchiveVideo;
+      if (!v) return;
+      v.paused ? v.play() : v.pause();
+    });
+
+    // Sync play/pause label to actual video state
+    this.listen(this._cctvArchiveVideo, 'play',  () => {
+      if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '⏸ PAUSE';
+    });
+    this.listen(this._cctvArchiveVideo, 'pause', () => {
+      if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
+    });
+
+    // Skip ±10 s
+    this.listen(this._cctvSkipBack, 'click', () => {
+      const v = this._cctvArchiveVideo;
+      if (v) v.currentTime = Math.max(0, v.currentTime - 10);
+    });
+    this.listen(this._cctvSkipFwd, 'click', () => {
+      const v = this._cctvArchiveVideo;
+      if (v) v.currentTime = Math.min(isFinite(v.duration) ? v.duration : 0, v.currentTime + 10);
+    });
+
+    // Speed cycle: 1× → 2× → 4× → 8× → 1×
+    this.listen(this._cctvSpeedBtn, 'click', () => {
+      const speeds = [1, 2, 4, 8];
+      this._archiveSpeedIdx = ((this._archiveSpeedIdx || 0) + 1) % speeds.length;
+      const spd = speeds[this._archiveSpeedIdx];
+      if (this._cctvArchiveVideo) this._cctvArchiveVideo.playbackRate = spd;
+      if (this._cctvSpeedBtn)     this._cctvSpeedBtn.textContent = `${spd}×`;
+    });
+  }
+
   this._renderCctvState(null);
   this.actions.syncViewport();
+}
+
+// ── Archive mode helpers ─────────────────────────────────────────────────────
+
+function formatHMS(s) {
+  const h   = Math.floor(s / 3600);
+  const m   = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+/**
+ * Switch between LIVE / 24H / 48H playback modes.
+ * Called on `this` (a CctvControls instance).
+ */
+export function _setArchiveMode(mode) {
+  if (this.destroyed) return;
+  this._archiveMode     = mode;
+  this._archiveSpeedIdx = 0;
+
+  // Reset speed label and playback rate
+  if (this._cctvSpeedBtn)     this._cctvSpeedBtn.textContent = '1×';
+  if (this._cctvArchiveVideo) this._cctvArchiveVideo.playbackRate = 1;
+
+  // Update pill active states
+  for (const [el, m] of [
+    [this._cctvModeLive, 'live'],
+    [this._cctvMode24h,  '24h'],
+    [this._cctvMode48h,  '48h'],
+  ]) {
+    el?.classList.toggle('active', m === mode);
+  }
+
+  if (mode === 'live') {
+    // Tear down archive player, re-trigger live rendering
+    if (this._cctvArchiveVideo) {
+      this._cctvArchiveVideo.pause();
+      this._cctvArchiveVideo.hidden = true;
+    }
+    if (this._cctvPlayerControls) this._cctvPlayerControls.hidden = true;
+    // Re-run live render (restores live frame/video)
+    this._renderCctvState(this._cctvState);
+  } else {
+    // Hide live elements, show archive player
+    if (this._cctvFrame) this._cctvFrame.hidden = true;
+    if (this._cctvVideo) this._cctvVideo.hidden = true;
+    if (this._cctvPlayerControls) this._cctvPlayerControls.hidden = false;
+    if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
+
+    const activeCamera = this._cctvState?.activeCamera;
+    const archiveUrl =
+      mode === '24h' ? activeCamera?.archives?.url24h
+                     : activeCamera?.archives?.url48h;
+    const v = this._cctvArchiveVideo;
+    if (v && archiveUrl) {
+      v.src    = archiveUrl;
+      v.hidden = false;
+      v.load();
+      v.play().catch(() => {}); // autoplay may be blocked; user can press PLAY
+    } else if (v) {
+      v.hidden = false; // show element even without URL (shows native error state)
+    }
+  }
+}
+
+/**
+ * Refresh scrubber position and time labels while archive video plays.
+ * Called on `this` (a CctvControls instance).
+ */
+export function _updateArchivePlayerHud() {
+  const v = this._cctvArchiveVideo;
+  if (!v) return;
+  const cur = isFinite(v.currentTime) ? v.currentTime : 0;
+  const dur = isFinite(v.duration)    ? v.duration    : 0;
+  if (this._cctvTimeElapsed) this._cctvTimeElapsed.textContent = formatHMS(cur);
+  if (this._cctvTimeTotal)   this._cctvTimeTotal.textContent   = formatHMS(dur);
+  if (this._cctvScrubber && dur > 0) {
+    this._cctvScrubber.value = String((cur / dur) * 100);
+  }
 }

@@ -365,3 +365,122 @@
   color: #a8f7ff;
   text-shadow: 0 0 10px rgba(0, 212, 255, 0.18);
 }
+
+/* ── CCTV Mode Bar & Archive Playback ───────── */
+.cctv-mode-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.cctv-mode-pill {
+  flex: 1;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cctv-mode-pill:hover:not(:disabled) {
+  color: #a8f7ff;
+  border-color: rgba(0, 212, 255, 0.35);
+  background: rgba(0, 212, 255, 0.06);
+}
+
+.cctv-mode-pill.active {
+  color: #00ffff;
+  border-color: rgba(0, 212, 255, 0.6);
+  background: rgba(0, 212, 255, 0.14);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.2) inset;
+}
+
+.cctv-mode-pill:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+#cctv-archive-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+
+.cctv-player-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(0, 20, 30, 0.45);
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+.cctv-scrub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cctv-time-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  color: #91edff;
+  white-space: nowrap;
+}
+
+.cctv-scrubber {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cctv-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #00e5ff;
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.7);
+  cursor: pointer;
+}
+
+.cctv-scrubber::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #00e5ff;
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.7);
+  cursor: pointer;
+  border: none;
+}
+
+.cctv-playback-row {
+  display: flex;
+  gap: 6px;
+}
+
+.cctv-playback-btn {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 9px !important;
+  letter-spacing: 0.8px;
+  text-align: center;
+}
