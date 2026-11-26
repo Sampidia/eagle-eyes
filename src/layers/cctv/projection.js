@@ -368,11 +368,7 @@ export function createProjection({
       const active = parts.selection.getActiveRecord();
       if (layerState._enabled && layerState._showProjection && active) {
         ensureProjectionRuntime(active);
-        if (
-          active.projection &&
-          !active.projection.video &&
-          !active.projection.archiveVideo
-        ) {
+        if (active.projection && !active.projection.video) {
           parts.frames.drawProjectionFrame(active);
           parts.frames.refreshProjectionTextures(active);
         }

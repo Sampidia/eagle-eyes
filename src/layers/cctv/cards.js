@@ -447,17 +447,12 @@ export function createCards({ state: layerState, services, parts, source }) {
     if (!runtime || !runtime.planeMaterial) return;
 
     if (mode !== 'live' && videoElement && corsClean && isVideoCorsClean(videoElement)) {
-      if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
-        videoElement.width = videoElement.videoWidth;
-        videoElement.height = videoElement.videoHeight;
-      }
       runtime.archiveVideo = videoElement;
-      runtime.planeMaterial.image = runtime.canvas;
-      runtime.planeMaterial.image = videoElement;
+      runtime.drawnImageStamp = -1;
+      runtime.lastFrameSignature = null;
       layerState._viewer?.scene?.requestRender?.();
     } else if (runtime.archiveVideo) {
       runtime.archiveVideo = null;
-      runtime.planeMaterial.image = runtime.video || runtime.canvas;
       runtime.drawnImageStamp = -1;
       runtime.lastFrameSignature = null;
       layerState._viewer?.scene?.requestRender?.();

@@ -121,9 +121,10 @@ export function createFrames({ state: layerState, services, parts, source }) {
     const runtime = record?.projection;
     if (!runtime || runtime.mode === 'video') return;
     const now = Date.now();
+    const swapIntervalMs = runtime.archiveVideo ? 100 : PROJECTION_TEXTURE_SWAP_MS;
     if (
       now - parts.model.safeNumber(runtime.lastTextureSwapAt, 0) <
-      PROJECTION_TEXTURE_SWAP_MS
+      swapIntervalMs
     )
       return;
 
@@ -280,6 +281,35 @@ export function createFrames({ state: layerState, services, parts, source }) {
     if (!runtime || !runtime.ctx) return;
 
     const health = layerState._healthById.get(record.camera.id) || null;
+
+    if (runtime.archiveVideo) {
+      const video = runtime.archiveVideo;
+      if (
+        video.readyState >= 2 &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
+      ) {
+        try {
+          runtime.ctx.clearRect(
+            0,
+            0,
+            PROJECTION_CANVAS_WIDTH,
+            PROJECTION_CANVAS_HEIGHT,
+          );
+          runtime.ctx.drawImage(
+            video,
+            0,
+            0,
+            PROJECTION_CANVAS_WIDTH,
+            PROJECTION_CANVAS_HEIGHT,
+          );
+          runtime.canvasStamp = (runtime.canvasStamp || 0) + 1;
+        } catch {
+          // Ignore tainted video frames if origin changed
+        }
+      }
+      return;
+    }
 
     if (runtime.mode === 'video' && runtime.video) {
       const video = runtime.video;
