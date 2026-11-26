@@ -186,6 +186,12 @@ export function _initCctvPanel() {
     this.listen(this._cctvArchiveVideo, 'pause', () => {
       if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
     });
+    this.listen(this._cctvArchiveVideo, 'error', () => {
+      if (this._archiveMode && this._archiveMode !== 'live' && this._cctvSourceBadge) {
+        this._cctvSourceBadge.textContent = 'ARCHIVE · MEDIA ERROR';
+        this._cctvSourceBadge.dataset.frameState = 'error';
+      }
+    });
 
     // Skip ±10 s
     this.listen(this._cctvSkipBack, 'click', () => {
@@ -243,6 +249,7 @@ export function _setArchiveMode(mode) {
     // Hide live elements, show archive player
     if (this._cctvFrame) this._cctvFrame.hidden = true;
     if (this._cctvVideo) this._cctvVideo.hidden = true;
+    this._cctvFrameWrap?.classList.remove('loading');
     if (this._cctvLiveControls)   this._cctvLiveControls.hidden   = true;
     if (this._cctvPlayerControls) this._cctvPlayerControls.hidden = false;
     if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
@@ -256,7 +263,11 @@ export function _setArchiveMode(mode) {
       v.src    = archiveUrl;
       v.hidden = false;
       v.load();
-      v.play().catch(() => {}); // autoplay may be blocked; user can press PLAY
+      v.play().catch(() => {
+        // Retry muted if browser autoplay policy blocks unmuted playback
+        v.muted = true;
+        v.play().catch(() => {});
+      });
     } else if (v) {
       v.hidden = false; // show element even without URL (shows native error state)
     }

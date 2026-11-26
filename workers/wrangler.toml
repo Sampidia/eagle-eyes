@@ -23,7 +23,7 @@ OPENAI_REALTIME_TRANSCRIBE_MODEL  = "gpt-4o-mini-transcribe"
 OPENAI_HUD_SUMMARY_MODEL   = "gpt-5-nano"
 OPENSKY_AUTH_MODE          = "oauth"
 # CCTV archive video URLs for 24h / 48h playback (e.g. CAM-austin:6-24hrs, CAM-austin:6-48hrs)
-"CAM-austin:6-24hrs" = "https://www.dropbox.com/scl/fi/flavhves0xjb4n7d7ak22/Director_name_is_2k_202602111200.jpeg?rlkey=cm8qqnfjtm4xacl7o0pu7npmi&st=a2x86r4a&dl=1"
+"CAM-austin:6-24hrs" = "https://www.dropbox.com/scl/fi/flavhves0xjb4n7d7ak22/Director_name_is_2k_202602111200.jpeg?rlkey=cm8qqnfjtm4xacl7o0pu7npmi&st=a2x86r4a&raw=1"
 "CAM-austin:6-48hrs" = "https://ik.imagekit.io/raer0lizo/Temp-files-for-buffer-upload/Ayra%20Starr,%20Rema%20-%20Who_s%20Dat%20Girl.mp4"
 # Secrets are set via: wrangler secret put SECRET_NAME
 # GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_SERVER_API_KEY, CESIUM_ION_TOKEN,

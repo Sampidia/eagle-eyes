@@ -115,6 +115,19 @@ export function getArchiveUrl(env, cameraId, range) {
   return null;
 }
 
+function buildArchivesMeta(env, cameraId) {
+  const raw24 = getArchiveUrl(env, cameraId, '24');
+  const raw48 = getArchiveUrl(env, cameraId, '48');
+  const url24h = raw24 ? normalizeVideoUrl(raw24) : null;
+  const url48h = raw48 ? normalizeVideoUrl(raw48) : null;
+  return {
+    has24h: Boolean(url24h),
+    has48h: Boolean(url48h),
+    url24h,
+    url48h,
+  };
+}
+
 /** Attempt to fetch live Austin Open Data cameras; fails open to empty array */
 async function fetchAustinCameras(max = 250) {
   try {
@@ -289,19 +302,10 @@ export async function handleCctv(request, env = {}) {
   const cached = cacheGet('cctv:catalog', CATALOG_TTL_MS);
   if (cached) {
     // Dynamically attach archive availability based on live env
-    const enrichedSources = cached.sources.map((cam) => {
-      const has24 = Boolean(getArchiveUrl(env, cam.id, '24'));
-      const has48 = Boolean(getArchiveUrl(env, cam.id, '48'));
-      return {
-        ...cam,
-        archives: {
-          has24h: has24,
-          has48h: has48,
-          url24h: has24 ? `/api/cctv/archive/${encodeURIComponent(cam.id)}?range=24h` : null,
-          url48h: has48 ? `/api/cctv/archive/${encodeURIComponent(cam.id)}?range=48h` : null,
-        },
-      };
-    });
+    const enrichedSources = cached.sources.map((cam) => ({
+      ...cam,
+      archives: buildArchivesMeta(env, cam.id),
+    }));
     return Response.json(
       { ...cached, sources: enrichedSources, cameras: enrichedSources },
       {
@@ -318,19 +322,10 @@ export async function handleCctv(request, env = {}) {
   const byId = new Map();
   for (const cam of BASE_CAMERAS) byId.set(cam.id, cam);
   for (const cam of liveAustin) byId.set(cam.id, cam);
-  const allCameras = Array.from(byId.values()).map((cam) => {
-    const has24 = Boolean(getArchiveUrl(env, cam.id, '24'));
-    const has48 = Boolean(getArchiveUrl(env, cam.id, '48'));
-    return {
-      ...cam,
-      archives: {
-        has24h: has24,
-        has48h: has48,
-        url24h: has24 ? `/api/cctv/archive/${encodeURIComponent(cam.id)}?range=24h` : null,
-        url48h: has48 ? `/api/cctv/archive/${encodeURIComponent(cam.id)}?range=48h` : null,
-      },
-    };
-  });
+  const allCameras = Array.from(byId.values()).map((cam) => ({
+    ...cam,
+    archives: buildArchivesMeta(env, cam.id),
+  }));
 
   const payload = {
     sources: allCameras,
