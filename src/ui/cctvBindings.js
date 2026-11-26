@@ -168,12 +168,12 @@ export function _initCctvPanel() {
       v.currentTime = (Number(this._cctvScrubber.value) / 100) * v.duration;
     });
 
-    // HUD refresh + projection sync as the video plays or metadata arrives
+    // HUD refresh + reveal archive video once media is ready
     const syncArchiveReady = () => {
       const v = this._cctvArchiveVideo;
       if (!v || !this._archiveMode || this._archiveMode === 'live') return;
       this._cctvFrameWrap?.classList.remove('loading');
-      delete this._cctvFrameWrap?.dataset?.archiveLoading;
+      if (this._cctvFrameWrap) delete this._cctvFrameWrap.dataset.archiveLoading;
       this._cctvFrameWrap?.classList.add('has-frame');
       v.classList.add('active');
       const cameraId = this._cctvState?.activeCameraId || '';
@@ -184,7 +184,7 @@ export function _initCctvPanel() {
               cameraId,
               mode: this._archiveMode,
               video: v,
-              corsClean: v.crossOrigin === 'anonymous',
+              url: v.currentSrc || v.src,
             },
           }),
         );
@@ -220,20 +220,8 @@ export function _initCctvPanel() {
       if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
     });
     this.listen(this._cctvArchiveVideo, 'error', () => {
-      const v = this._cctvArchiveVideo;
-      // If CORS mode failed before metadata, retry once without crossOrigin so panel playback still works
-      if (v && v.crossOrigin === 'anonymous' && !v.dataset.corsFallbackTried && v.src) {
-        v.dataset.corsFallbackTried = '1';
-        v.removeAttribute('crossorigin');
-        v.load();
-        v.play().catch(() => {
-          v.muted = true;
-          v.play().catch(() => {});
-        });
-        return;
-      }
       this._cctvFrameWrap?.classList.remove('loading');
-      delete this._cctvFrameWrap?.dataset?.archiveLoading;
+      if (this._cctvFrameWrap) delete this._cctvFrameWrap.dataset.archiveLoading;
       if (this._archiveMode && this._archiveMode !== 'live' && this._cctvSourceBadge) {
         this._cctvSourceBadge.textContent = 'ARCHIVE · MEDIA ERROR';
         this._cctvSourceBadge.dataset.frameState = 'error';
@@ -288,12 +276,18 @@ export function _setArchiveMode(mode) {
       this._cctvArchiveVideo.classList.remove('active');
       this._cctvArchiveVideo.hidden = true;
     }
-    delete this._cctvFrameWrap?.dataset?.archiveLoading;
+    if (this._cctvFrameWrap) {
+      this._cctvFrameWrap.classList.remove('loading');
+      delete this._cctvFrameWrap.dataset.archiveLoading;
+      if (this._cctvFrame?.classList.contains('active') && this._cctvFrame.getAttribute('src')) {
+        this._cctvFrameWrap.classList.add('has-frame');
+      }
+    }
     const cameraId = this._cctvState?.activeCameraId || '';
     if (cameraId && typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('gev:cctv-archive-mode', {
-          detail: { cameraId, mode: 'live', video: null, corsClean: false },
+          detail: { cameraId, mode: 'live', video: null, url: '' },
         }),
       );
     }
@@ -322,11 +316,9 @@ export function _setArchiveMode(mode) {
     const v = this._cctvArchiveVideo;
     if (v && archiveUrl) {
       v.classList.remove('active');
-      delete v.dataset.corsFallbackTried;
-      v.crossOrigin = 'anonymous';
+      v.removeAttribute('crossorigin');
       v.src    = archiveUrl;
       v.hidden = false;
-      v.load();
       v.play().catch(() => {
         // Retry muted if browser autoplay policy blocks unmuted playback
         v.muted = true;
@@ -334,7 +326,7 @@ export function _setArchiveMode(mode) {
       });
     } else if (v) {
       this._cctvFrameWrap?.classList.remove('loading');
-      delete this._cctvFrameWrap?.dataset?.archiveLoading;
+      if (this._cctvFrameWrap) delete this._cctvFrameWrap.dataset.archiveLoading;
       v.hidden = false; // show element even without URL (shows native error state)
     }
   }

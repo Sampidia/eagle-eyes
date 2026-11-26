@@ -251,8 +251,8 @@ export function createLifecycle({
       }
       if (!layerState._archiveModeSyncListener && typeof window !== 'undefined') {
         layerState._archiveModeSyncListener = (event) => {
-          const { cameraId, mode, video, corsClean } = event?.detail || {};
-          parts.cards.syncArchiveVideo?.(cameraId, mode, video, corsClean);
+          const { cameraId, mode, video, url } = event?.detail || {};
+          parts.cards.syncArchiveVideo?.(cameraId, mode, video, url);
         };
         window.addEventListener(
           'gev:cctv-archive-mode',

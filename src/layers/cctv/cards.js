@@ -440,23 +440,97 @@ export function createCards({ state: layerState, services, parts, source }) {
       return false;
     }
   }
-  function syncArchiveVideo(cameraId, mode, videoElement, corsClean) {
+  function teardownArchiveMirror(runtime) {
+    if (!runtime) return;
+    if (runtime._archiveCleanup) {
+      runtime._archiveCleanup();
+      runtime._archiveCleanup = null;
+    }
+    if (runtime.archiveVideo) {
+      try {
+        runtime.archiveVideo.pause();
+        runtime.archiveVideo.removeAttribute('src');
+        runtime.archiveVideo.load();
+      } catch {}
+      runtime.archiveVideo = null;
+    }
+  }
+  function syncArchiveVideo(cameraId, mode, panelVideo, url) {
     if (!layerState._enabled || !cameraId) return;
     const record = layerState._recordById?.get(cameraId);
     const runtime = record?.projection;
     if (!runtime || !runtime.planeMaterial) return;
 
-    if (mode !== 'live' && videoElement && corsClean && isVideoCorsClean(videoElement)) {
-      runtime.archiveVideo = videoElement;
-      runtime.drawnImageStamp = -1;
-      runtime.lastFrameSignature = null;
-      layerState._viewer?.scene?.requestRender?.();
-    } else if (runtime.archiveVideo) {
-      runtime.archiveVideo = null;
-      runtime.drawnImageStamp = -1;
-      runtime.lastFrameSignature = null;
-      layerState._viewer?.scene?.requestRender?.();
+    if (mode === 'live' || !panelVideo || !url) {
+      if (runtime.archiveVideo || runtime._archiveCleanup) {
+        teardownArchiveMirror(runtime);
+        runtime.drawnImageStamp = -1;
+        runtime.lastFrameSignature = null;
+        layerState._viewer?.scene?.requestRender?.();
+      }
+      return;
     }
+
+    // Already mirroring this exact URL
+    if (runtime._archiveSourceUrl === url && runtime.archiveVideo) return;
+    teardownArchiveMirror(runtime);
+    runtime._archiveSourceUrl = url;
+
+    // Mirror onto a separate CORS-enabled offscreen <video> so the panel <video>
+    // never needs crossOrigin="anonymous" and always plays reliably.
+    const mirror = document.createElement('video');
+    mirror.crossOrigin = 'anonymous';
+    mirror.muted = true;
+    mirror.playsInline = true;
+    mirror.preload = 'auto';
+
+    const syncTime = () => {
+      if (Math.abs((mirror.currentTime || 0) - (panelVideo.currentTime || 0)) > 0.35) {
+        try {
+          mirror.currentTime = panelVideo.currentTime || 0;
+        } catch {}
+      }
+    };
+    const onPlay = () => {
+      syncTime();
+      mirror.play().catch(() => {});
+    };
+    const onPause = () => {
+      mirror.pause();
+      syncTime();
+    };
+    const onSeeked = () => syncTime();
+    const onReady = () => {
+      if (!isVideoCorsClean(mirror)) {
+        teardownArchiveMirror(runtime);
+        return;
+      }
+      runtime.archiveVideo = mirror;
+      runtime.drawnImageStamp = -1;
+      runtime.lastFrameSignature = null;
+      syncTime();
+      if (!panelVideo.paused) mirror.play().catch(() => {});
+      layerState._viewer?.scene?.requestRender?.();
+    };
+    const onError = () => teardownArchiveMirror(runtime);
+
+    mirror.addEventListener('loadeddata', onReady);
+    mirror.addEventListener('error', onError);
+    panelVideo.addEventListener('play', onPlay);
+    panelVideo.addEventListener('pause', onPause);
+    panelVideo.addEventListener('seeked', onSeeked);
+
+    runtime._archiveCleanup = () => {
+      mirror.removeEventListener('loadeddata', onReady);
+      mirror.removeEventListener('error', onError);
+      panelVideo.removeEventListener('play', onPlay);
+      panelVideo.removeEventListener('pause', onPause);
+      panelVideo.removeEventListener('seeked', onSeeked);
+      runtime._archiveSourceUrl = null;
+    };
+
+    // Append ?_cors=1 (for non-signed URLs? No, use raw URL; CORS hosts allow it)
+    mirror.src = url;
   }
   return {
     handleVisibilityChange,
