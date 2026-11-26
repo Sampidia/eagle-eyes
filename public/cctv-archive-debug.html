@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CCTV Archive Video Debug</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070c12;
+      --panel: #0e1620;
+      --border: rgba(0, 212, 255, 0.28);
+      --cyan: #6ceaff;
+      --text: #e6f2f8;
+      --muted: #8ea7b8;
+      --err: #ff7c7c;
+      --ok: #6effb0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      letter-spacing: 1px;
+      color: var(--cyan);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 1200px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    button {
+      background: rgba(0, 212, 255, 0.14);
+      color: var(--cyan);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button:hover { background: rgba(0, 212, 255, 0.25); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    input[type="text"] {
+      flex: 1;
+      min-width: 240px;
+      background: #060a0f;
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 5px;
+      padding: 6px 8px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      display: block;
+    }
+    pre, .log {
+      background: #05090e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 10px;
+      margin: 8px 0 0;
+      overflow: auto;
+      max-height: 280px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>CCTV ARCHIVE VIDEO DEBUGGER</h1>
+  <div class="grid">
+    <div class="card">
+      <div class="row">
+        <button id="btn-fetch-sources">1. Fetch /api/cctv/sources</button>
+        <button id="btn-play-24h" disabled>Play API 24H</button>
+        <button id="btn-play-48h" disabled>Play API 48H</button>
+        <button id="btn-play-raw48">Play Direct ImageKit MP4</button>
+      </div>
+      <div class="row">
+        <input id="custom-url" type="text" placeholder="Paste any video URL to test..." />
+        <button id="btn-play-custom">Test URL</button>
+      </div>
+      <video id="debug-video" controls playsinline preload="auto"></video>
+      <div id="video-stats" class="muted" style="margin-top:8px;">Idle</div>
+      <pre id="api-output">Click "1. Fetch /api/cctv/sources" to inspect austin:6 archives metadata...</pre>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <span>EVENT &amp; NETWORK LOG</span>
+        <button id="btn-clear-log">Clear</button>
+      </div>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+  <script src="/cctv-archive-debug.js"></script>
+</body>
+</html>
+
