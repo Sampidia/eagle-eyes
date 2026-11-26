@@ -168,9 +168,41 @@ export function _initCctvPanel() {
       v.currentTime = (Number(this._cctvScrubber.value) / 100) * v.duration;
     });
 
-    // HUD refresh as the video plays or metadata arrives
-    this.listen(this._cctvArchiveVideo, 'timeupdate',    () => this._updateArchivePlayerHud());
-    this.listen(this._cctvArchiveVideo, 'loadedmetadata',() => this._updateArchivePlayerHud());
+    // HUD refresh + projection sync as the video plays or metadata arrives
+    const syncArchiveReady = () => {
+      const v = this._cctvArchiveVideo;
+      if (!v || !this._archiveMode || this._archiveMode === 'live') return;
+      this._cctvFrameWrap?.classList.remove('loading');
+      delete this._cctvFrameWrap?.dataset?.archiveLoading;
+      this._cctvFrameWrap?.classList.add('has-frame');
+      v.classList.add('active');
+      const cameraId = this._cctvState?.activeCameraId || '';
+      if (cameraId && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('gev:cctv-archive-mode', {
+            detail: {
+              cameraId,
+              mode: this._archiveMode,
+              video: v,
+              corsClean: v.crossOrigin === 'anonymous',
+            },
+          }),
+        );
+      }
+    };
+
+    this.listen(this._cctvArchiveVideo, 'timeupdate',     () => this._updateArchivePlayerHud());
+    this.listen(this._cctvArchiveVideo, 'loadedmetadata', () => {
+      this._updateArchivePlayerHud();
+      syncArchiveReady();
+    });
+    this.listen(this._cctvArchiveVideo, 'loadeddata',     syncArchiveReady);
+    this.listen(this._cctvArchiveVideo, 'canplay',        syncArchiveReady);
+    this.listen(this._cctvArchiveVideo, 'waiting', () => {
+      if (this._archiveMode && this._archiveMode !== 'live') {
+        this._cctvFrameWrap?.classList.add('loading');
+      }
+    });
 
     // Play / Pause toggle button
     this.listen(this._cctvPlayBtn, 'click', () => {
@@ -182,11 +214,26 @@ export function _initCctvPanel() {
     // Sync play/pause label to actual video state
     this.listen(this._cctvArchiveVideo, 'play',  () => {
       if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '⏸ PAUSE';
+      syncArchiveReady();
     });
     this.listen(this._cctvArchiveVideo, 'pause', () => {
       if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
     });
     this.listen(this._cctvArchiveVideo, 'error', () => {
+      const v = this._cctvArchiveVideo;
+      // If CORS mode failed before metadata, retry once without crossOrigin so panel playback still works
+      if (v && v.crossOrigin === 'anonymous' && !v.dataset.corsFallbackTried && v.src) {
+        v.dataset.corsFallbackTried = '1';
+        v.removeAttribute('crossorigin');
+        v.load();
+        v.play().catch(() => {
+          v.muted = true;
+          v.play().catch(() => {});
+        });
+        return;
+      }
+      this._cctvFrameWrap?.classList.remove('loading');
+      delete this._cctvFrameWrap?.dataset?.archiveLoading;
       if (this._archiveMode && this._archiveMode !== 'live' && this._cctvSourceBadge) {
         this._cctvSourceBadge.textContent = 'ARCHIVE · MEDIA ERROR';
         this._cctvSourceBadge.dataset.frameState = 'error';
@@ -235,10 +282,20 @@ export function _setArchiveMode(mode) {
   }
 
   if (mode === 'live') {
-    // Tear down archive player, re-trigger live rendering
+    // Tear down archive player, restore live projection & re-trigger live rendering
     if (this._cctvArchiveVideo) {
       this._cctvArchiveVideo.pause();
+      this._cctvArchiveVideo.classList.remove('active');
       this._cctvArchiveVideo.hidden = true;
+    }
+    delete this._cctvFrameWrap?.dataset?.archiveLoading;
+    const cameraId = this._cctvState?.activeCameraId || '';
+    if (cameraId && typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('gev:cctv-archive-mode', {
+          detail: { cameraId, mode: 'live', video: null, corsClean: false },
+        }),
+      );
     }
     if (this._cctvPlayerControls) this._cctvPlayerControls.hidden = true;
     if (this._cctvLiveControls)   this._cctvLiveControls.hidden   = false;
@@ -246,10 +303,14 @@ export function _setArchiveMode(mode) {
     this._renderCctvState(this._cctvState);
     this._updateLiveFrameHud?.();
   } else {
-    // Hide live elements, show archive player
+    // Hide live elements, show animated loading shimmer until archive video is ready
     if (this._cctvFrame) this._cctvFrame.hidden = true;
     if (this._cctvVideo) this._cctvVideo.hidden = true;
-    this._cctvFrameWrap?.classList.remove('loading');
+    if (this._cctvFrameWrap) {
+      this._cctvFrameWrap.classList.remove('has-frame');
+      this._cctvFrameWrap.classList.add('loading');
+      this._cctvFrameWrap.dataset.archiveLoading = 'true';
+    }
     if (this._cctvLiveControls)   this._cctvLiveControls.hidden   = true;
     if (this._cctvPlayerControls) this._cctvPlayerControls.hidden = false;
     if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
@@ -260,6 +321,9 @@ export function _setArchiveMode(mode) {
                      : activeCamera?.archives?.url48h;
     const v = this._cctvArchiveVideo;
     if (v && archiveUrl) {
+      v.classList.remove('active');
+      delete v.dataset.corsFallbackTried;
+      v.crossOrigin = 'anonymous';
       v.src    = archiveUrl;
       v.hidden = false;
       v.load();
@@ -269,6 +333,8 @@ export function _setArchiveMode(mode) {
         v.play().catch(() => {});
       });
     } else if (v) {
+      this._cctvFrameWrap?.classList.remove('loading');
+      delete this._cctvFrameWrap?.dataset?.archiveLoading;
       v.hidden = false; // show element even without URL (shows native error state)
     }
   }

@@ -275,6 +275,10 @@
   pointer-events: none;
 }
 
+.cctv-frame-wrap[data-archive-loading='true']:not(.has-frame)::before {
+  content: 'ACQUIRING ARCHIVE';
+}
+
 @keyframes cctv-frame-shimmer {
   to {
     transform: translateX(100%);
@@ -413,8 +417,15 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: contain;
-  background: #000;
+  background: transparent;
   display: block;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+#cctv-archive-video.active {
+  opacity: 1;
+  background: #000;
 }
 
 .cctv-player-controls {

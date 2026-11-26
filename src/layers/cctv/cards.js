@@ -410,7 +410,11 @@ export function createCards({ state: layerState, services, parts, source }) {
       }
     }
     const record = layerState._recordById?.get(cameraId);
-    if (record?.projection && !record.projection.video) {
+    if (
+      record?.projection &&
+      !record.projection.video &&
+      !record.projection.archiveVideo
+    ) {
       record.projection.image = image;
       record.projection.imageLoading = false;
       record.projection.imageReady = true;
@@ -418,6 +422,29 @@ export function createCards({ state: layerState, services, parts, source }) {
       record.projection.lastImageRefreshAt = Date.now();
     }
     layerState._viewer?.scene?.requestRender?.();
+  }
+  function syncArchiveVideo(cameraId, mode, videoElement, corsClean) {
+    if (!layerState._enabled || !cameraId) return;
+    const record = layerState._recordById?.get(cameraId);
+    const runtime = record?.projection;
+    if (!runtime || !runtime.planeMaterial) return;
+
+    if (mode !== 'live' && videoElement && corsClean) {
+      if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+        videoElement.width = videoElement.videoWidth;
+        videoElement.height = videoElement.videoHeight;
+      }
+      runtime.archiveVideo = videoElement;
+      runtime.planeMaterial.image = runtime.canvas;
+      runtime.planeMaterial.image = videoElement;
+      layerState._viewer?.scene?.requestRender?.();
+    } else if (mode === 'live' && runtime.archiveVideo) {
+      runtime.archiveVideo = null;
+      runtime.planeMaterial.image = runtime.video || runtime.canvas;
+      runtime.drawnImageStamp = -1;
+      runtime.lastFrameSignature = null;
+      layerState._viewer?.scene?.requestRender?.();
+    }
   }
   return {
     handleVisibilityChange,
@@ -427,6 +454,7 @@ export function createCards({ state: layerState, services, parts, source }) {
     pushAmbientCardEntries,
     fetchCardFrame,
     syncSettledFrame,
+    syncArchiveVideo,
     startCardFrameLoop,
     stopCardFrameLoop,
     teardownAmbientCards,

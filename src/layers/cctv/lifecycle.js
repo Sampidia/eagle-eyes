@@ -249,6 +249,16 @@ export function createLifecycle({
           layerState._panelFrameSyncListener,
         );
       }
+      if (!layerState._archiveModeSyncListener && typeof window !== 'undefined') {
+        layerState._archiveModeSyncListener = (event) => {
+          const { cameraId, mode, video, corsClean } = event?.detail || {};
+          parts.cards.syncArchiveVideo?.(cameraId, mode, video, corsClean);
+        };
+        window.addEventListener(
+          'gev:cctv-archive-mode',
+          layerState._archiveModeSyncListener,
+        );
+      }
 
       // Field-test fix (2026-07-06): horizon-cull on camera settle (pairs with
       // the billboards' always-on-top depth setting) + one initial pass so the
@@ -446,6 +456,13 @@ export function createLifecycle({
           layerState._panelFrameSyncListener,
         );
         layerState._panelFrameSyncListener = null;
+      }
+      if (layerState._archiveModeSyncListener && typeof window !== 'undefined') {
+        window.removeEventListener(
+          'gev:cctv-archive-mode',
+          layerState._archiveModeSyncListener,
+        );
+        layerState._archiveModeSyncListener = null;
       }
       const teardownViewer = viewer || layerState._viewer;
       if (layerState._horizonCullListener && teardownViewer?.camera?.moveEnd) {
