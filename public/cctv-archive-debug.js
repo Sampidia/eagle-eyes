@@ -66,14 +66,11 @@
     log(`--- Loading [${label}]: ${url}`);
     customInput.value = url;
     probeUrl(url);
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
     video.src = url;
-    video.load();
     video.play().then(
       () => log(`${label}: play() resolved`, 'ok'),
       (err) => {
+        if (err.name === 'AbortError') return;
         log(`${label}: play() rejected (${err.name}: ${err.message}) — retrying muted`, 'err');
         video.muted = true;
         video.play().then(
