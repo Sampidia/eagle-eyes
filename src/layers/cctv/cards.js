@@ -423,13 +423,30 @@ export function createCards({ state: layerState, services, parts, source }) {
     }
     layerState._viewer?.scene?.requestRender?.();
   }
+  function isVideoCorsClean(video) {
+    try {
+      if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+        return false;
+      }
+      const probe = document.createElement('canvas');
+      probe.width = 1;
+      probe.height = 1;
+      const ctx = probe.getContext('2d');
+      if (!ctx) return false;
+      ctx.drawImage(video, 0, 0, 1, 1);
+      ctx.getImageData(0, 0, 1, 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   function syncArchiveVideo(cameraId, mode, videoElement, corsClean) {
     if (!layerState._enabled || !cameraId) return;
     const record = layerState._recordById?.get(cameraId);
     const runtime = record?.projection;
     if (!runtime || !runtime.planeMaterial) return;
 
-    if (mode !== 'live' && videoElement && corsClean) {
+    if (mode !== 'live' && videoElement && corsClean && isVideoCorsClean(videoElement)) {
       if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
         videoElement.width = videoElement.videoWidth;
         videoElement.height = videoElement.videoHeight;
@@ -438,7 +455,7 @@ export function createCards({ state: layerState, services, parts, source }) {
       runtime.planeMaterial.image = runtime.canvas;
       runtime.planeMaterial.image = videoElement;
       layerState._viewer?.scene?.requestRender?.();
-    } else if (mode === 'live' && runtime.archiveVideo) {
+    } else if (runtime.archiveVideo) {
       runtime.archiveVideo = null;
       runtime.planeMaterial.image = runtime.video || runtime.canvas;
       runtime.drawnImageStamp = -1;
