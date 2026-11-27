@@ -500,6 +500,11 @@ export function createCards({ state: layerState, services, parts, source }) {
       syncTime();
     };
     const onSeeked = () => syncTime();
+    const onTimeUpdate = () => {
+      if (Math.abs((mirror.currentTime || 0) - (panelVideo.currentTime || 0)) > 0.75) {
+        syncTime();
+      }
+    };
     const onReady = () => {
       if (!isVideoCorsClean(mirror)) {
         teardownArchiveMirror(runtime);
@@ -519,6 +524,7 @@ export function createCards({ state: layerState, services, parts, source }) {
     panelVideo.addEventListener('play', onPlay);
     panelVideo.addEventListener('pause', onPause);
     panelVideo.addEventListener('seeked', onSeeked);
+    panelVideo.addEventListener('timeupdate', onTimeUpdate);
 
     runtime._archiveCleanup = () => {
       mirror.removeEventListener('loadeddata', onReady);
@@ -526,11 +532,24 @@ export function createCards({ state: layerState, services, parts, source }) {
       panelVideo.removeEventListener('play', onPlay);
       panelVideo.removeEventListener('pause', onPause);
       panelVideo.removeEventListener('seeked', onSeeked);
+      panelVideo.removeEventListener('timeupdate', onTimeUpdate);
       runtime._archiveSourceUrl = null;
     };
 
-    // Append ?_cors=1 (for non-signed URLs? No, use raw URL; CORS hosts allow it)
-    mirror.src = url;
+    // Bypass any non-CORS HTTP cache entry created by panelVideo
+    let mirrorUrl = url;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (
+        !parsed.searchParams.has('X-Amz-Signature') &&
+        !parsed.searchParams.has('Signature') &&
+        !parsed.searchParams.has('rlkey')
+      ) {
+        parsed.searchParams.set('gev_cors', '1');
+        mirrorUrl = parsed.toString();
+      }
+    } catch {}
+    mirror.src = mirrorUrl;
   }
   return {
     handleVisibilityChange,
