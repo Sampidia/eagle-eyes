@@ -310,6 +310,7 @@ export function _setArchiveMode(mode) {
     if (this._cctvPlayBtn) this._cctvPlayBtn.textContent = '▶ PLAY';
 
     const activeCamera = this._cctvState?.activeCamera;
+    const cameraId = this._cctvState?.activeCameraId || activeCamera?.id || '';
     const archiveUrl =
       mode === '24h' ? activeCamera?.archives?.url24h
                      : activeCamera?.archives?.url48h;
@@ -319,6 +320,13 @@ export function _setArchiveMode(mode) {
       v.removeAttribute('crossorigin');
       v.src    = archiveUrl;
       v.hidden = false;
+      if (cameraId && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('gev:cctv-archive-mode', {
+            detail: { cameraId, mode, video: v, url: archiveUrl },
+          }),
+        );
+      }
       v.play().catch(() => {
         // Retry muted if browser autoplay policy blocks unmuted playback
         v.muted = true;

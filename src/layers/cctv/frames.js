@@ -282,6 +282,10 @@ export function createFrames({ state: layerState, services, parts, source }) {
 
     const health = layerState._healthById.get(record.camera.id) || null;
 
+    if (runtime.archivePending && !runtime.archiveVideo) {
+      return;
+    }
+
     if (runtime.archiveVideo) {
       const video = runtime.archiveVideo;
       if (

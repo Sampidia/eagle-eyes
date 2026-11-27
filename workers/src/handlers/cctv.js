@@ -202,6 +202,58 @@ export async function handleCctv(request, env = {}) {
       );
     }
 
+    // When ?proxy=1 is requested (e.g., 3D WebGL projection needing same-origin/CORS
+    // access to a Dropbox/Drive video that lacks Access-Control-Allow-Origin),
+    // stream upstream with Range support and a connect-only timeout.
+    if (url.searchParams.get('proxy') === '1') {
+      const rangeHeader = request.headers.get('range');
+      const upstreamHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      };
+      if (rangeHeader) upstreamHeaders.Range = rangeHeader;
+
+      const controller = new AbortController();
+      const connectTimer = setTimeout(() => controller.abort(), 15_000);
+      try {
+        const upstream = await fetch(videoUrl, {
+          headers: upstreamHeaders,
+          signal: controller.signal,
+        });
+        clearTimeout(connectTimer);
+
+        const responseHeaders = new Headers();
+        responseHeaders.set(
+          'Content-Type',
+          upstream.headers.get('content-type') || 'video/mp4',
+        );
+        responseHeaders.set('Accept-Ranges', 'bytes');
+        responseHeaders.set('Access-Control-Allow-Origin', '*');
+        responseHeaders.set(
+          'Access-Control-Expose-Headers',
+          'Content-Range, Content-Length, Accept-Ranges',
+        );
+        responseHeaders.set('Cache-Control', 'public, max-age=3600');
+        if (upstream.headers.has('content-length')) {
+          responseHeaders.set('Content-Length', upstream.headers.get('content-length'));
+        }
+        if (upstream.headers.has('content-range')) {
+          responseHeaders.set('Content-Range', upstream.headers.get('content-range'));
+        }
+
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: responseHeaders,
+        });
+      } catch (err) {
+        clearTimeout(connectTimer);
+        console.warn('[cctv] Archive proxy stream error:', err?.message);
+        return Response.json(
+          { error: 'Archive proxy stream failed' },
+          { status: 502, headers: noStore },
+        );
+      }
+    }
+
     // Redirect directly to the media host so <video> streams natively with HTTP Range support
     // without hitting Worker stream timeouts or Vercel proxy body limits.
     return new Response(null, {

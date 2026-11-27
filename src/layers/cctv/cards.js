@@ -413,7 +413,8 @@ export function createCards({ state: layerState, services, parts, source }) {
     if (
       record?.projection &&
       !record.projection.video &&
-      !record.projection.archiveVideo
+      !record.projection.archiveVideo &&
+      !record.projection.archivePending
     ) {
       record.projection.image = image;
       record.projection.imageLoading = false;
@@ -454,22 +455,11 @@ export function createCards({ state: layerState, services, parts, source }) {
       } catch {}
       runtime.archiveVideo = null;
     }
+    runtime.archivePending = false;
   }
-  function syncArchiveVideo(cameraId, mode, panelVideo, url) {
-    if (!layerState._enabled || !cameraId) return;
-    const record = layerState._recordById?.get(cameraId);
+  function attachArchiveMirror(record, { cameraId, mode, panelVideo, url }) {
     const runtime = record?.projection;
     if (!runtime || !runtime.planeMaterial) return;
-
-    if (mode === 'live' || !panelVideo || !url) {
-      if (runtime.archiveVideo || runtime._archiveCleanup) {
-        teardownArchiveMirror(runtime);
-        runtime.drawnImageStamp = -1;
-        runtime.lastFrameSignature = null;
-        layerState._viewer?.scene?.requestRender?.();
-      }
-      return;
-    }
 
     // Already mirroring or loading this exact URL
     if (
@@ -480,6 +470,14 @@ export function createCards({ state: layerState, services, parts, source }) {
     }
     teardownArchiveMirror(runtime);
     runtime._archiveSourceUrl = url;
+    runtime.archivePending = true;
+
+    // Immediately clear stale live frame on the projection canvas while buffering
+    if (runtime.ctx) {
+      parts.frames.paintProjectionPlaceholder(runtime.ctx, record.camera);
+      runtime.canvasStamp = (runtime.canvasStamp || 0) + 1;
+      layerState._viewer?.scene?.requestRender?.();
+    }
 
     // Mirror onto a separate CORS-enabled offscreen <video> so the panel <video>
     // never needs crossOrigin="anonymous" and always plays reliably.
@@ -488,6 +486,24 @@ export function createCards({ state: layerState, services, parts, source }) {
     mirror.muted = true;
     mirror.playsInline = true;
     mirror.preload = 'auto';
+
+    // Bypass any non-CORS HTTP cache entry created by panelVideo
+    let directCorsUrl = url;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (
+        !parsed.searchParams.has('X-Amz-Signature') &&
+        !parsed.searchParams.has('Signature') &&
+        !parsed.searchParams.has('rlkey')
+      ) {
+        parsed.searchParams.set('gev_cors', '1');
+        directCorsUrl = parsed.toString();
+      }
+    } catch {}
+
+    const proxyRange = String(mode || '').includes('48') ? '48h' : '24h';
+    const proxyCorsUrl = `/api/cctv/archive/${encodeURIComponent(cameraId)}?range=${proxyRange}&proxy=1`;
+    let usedProxyFallback = false;
 
     const syncTime = () => {
       if (Math.abs((mirror.currentTime || 0) - (panelVideo.currentTime || 0)) > 0.35) {
@@ -510,11 +526,25 @@ export function createCards({ state: layerState, services, parts, source }) {
         syncTime();
       }
     };
+    const fallbackToProxy = () => {
+      if (!usedProxyFallback) {
+        usedProxyFallback = true;
+        mirror.src = proxyCorsUrl;
+        mirror.load();
+        if (!panelVideo.paused) {
+          mirror.play().catch(() => {});
+        }
+        return true;
+      }
+      teardownArchiveMirror(runtime);
+      return false;
+    };
     const onReady = () => {
       if (!isVideoCorsClean(mirror)) {
-        teardownArchiveMirror(runtime);
+        fallbackToProxy();
         return;
       }
+      runtime.archivePending = false;
       runtime.archiveVideo = mirror;
       runtime.drawnImageStamp = -1;
       runtime.lastFrameSignature = null;
@@ -522,7 +552,7 @@ export function createCards({ state: layerState, services, parts, source }) {
       if (!panelVideo.paused) mirror.play().catch(() => {});
       layerState._viewer?.scene?.requestRender?.();
     };
-    const onError = () => teardownArchiveMirror(runtime);
+    const onError = () => fallbackToProxy();
 
     mirror.addEventListener('loadeddata', onReady);
     mirror.addEventListener('error', onError);
@@ -541,24 +571,37 @@ export function createCards({ state: layerState, services, parts, source }) {
       runtime._archiveSourceUrl = null;
     };
 
-    // Bypass any non-CORS HTTP cache entry created by panelVideo
-    let mirrorUrl = url;
-    try {
-      const parsed = new URL(url, window.location.origin);
-      if (
-        !parsed.searchParams.has('X-Amz-Signature') &&
-        !parsed.searchParams.has('Signature') &&
-        !parsed.searchParams.has('rlkey')
-      ) {
-        parsed.searchParams.set('gev_cors', '1');
-        mirrorUrl = parsed.toString();
-      }
-    } catch {}
-    mirror.src = mirrorUrl;
+    mirror.src = directCorsUrl;
     mirror.load();
     if (!panelVideo.paused) {
       mirror.play().catch(() => {});
     }
+  }
+  function syncArchiveVideo(cameraId, mode, panelVideo, url) {
+    if (!layerState._enabled || !cameraId) return;
+    if (mode === 'live' || !panelVideo || !url) {
+      layerState._activeArchive = null;
+      const record = layerState._recordById?.get(cameraId);
+      const runtime = record?.projection;
+      if (runtime && (runtime.archiveVideo || runtime._archiveCleanup || runtime.archivePending)) {
+        teardownArchiveMirror(runtime);
+        runtime.drawnImageStamp = -1;
+        runtime.lastFrameSignature = null;
+        layerState._viewer?.scene?.requestRender?.();
+      }
+      return;
+    }
+
+    layerState._activeArchive = { cameraId, mode, panelVideo, url };
+    const record = layerState._recordById?.get(cameraId);
+    if (record?.projection?.planeMaterial) {
+      attachArchiveMirror(record, layerState._activeArchive);
+    }
+  }
+  function ensureArchiveSyncForRecord(record) {
+    const active = layerState._activeArchive;
+    if (!active || !record?.camera || active.cameraId !== record.camera.id) return;
+    attachArchiveMirror(record, active);
   }
   return {
     handleVisibilityChange,
@@ -569,6 +612,7 @@ export function createCards({ state: layerState, services, parts, source }) {
     fetchCardFrame,
     syncSettledFrame,
     syncArchiveVideo,
+    ensureArchiveSyncForRecord,
     startCardFrameLoop,
     stopCardFrameLoop,
     teardownAmbientCards,
