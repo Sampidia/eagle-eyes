@@ -471,8 +471,13 @@ export function createCards({ state: layerState, services, parts, source }) {
       return;
     }
 
-    // Already mirroring this exact URL
-    if (runtime._archiveSourceUrl === url && runtime.archiveVideo) return;
+    // Already mirroring or loading this exact URL
+    if (
+      runtime._archiveSourceUrl === url &&
+      (runtime.archiveVideo || runtime._archiveCleanup)
+    ) {
+      return;
+    }
     teardownArchiveMirror(runtime);
     runtime._archiveSourceUrl = url;
 
@@ -550,6 +555,10 @@ export function createCards({ state: layerState, services, parts, source }) {
       }
     } catch {}
     mirror.src = mirrorUrl;
+    mirror.load();
+    if (!panelVideo.paused) {
+      mirror.play().catch(() => {});
+    }
   }
   return {
     handleVisibilityChange,
