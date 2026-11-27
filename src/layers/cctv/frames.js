@@ -120,23 +120,20 @@ export function createFrames({ state: layerState, services, parts, source }) {
   function refreshProjectionTextures(record) {
     const runtime = record?.projection;
     if (!runtime || runtime.mode === 'video') return;
-    const now = Date.now();
-    const swapIntervalMs = runtime.archiveVideo ? 100 : PROJECTION_TEXTURE_SWAP_MS;
-    if (
-      now - parts.model.safeNumber(runtime.lastTextureSwapAt, 0) <
-      swapIntervalMs
-    )
-      return;
 
     const planeShowing = !!(runtime.planeEntity?.show && runtime.planeMaterial);
     if (!planeShowing) return;
 
     // Only swap when the canvas content actually changed since the last swap.
-    // Frames land every ~10 s but this runs at 1 Hz — swapping an UNCHANGED
-    // canvas re-uploads the texture for nothing, and each material image
-    // reassignment is a flash opportunity on the live plane (owner field test
-    // 2026-07-04: intermittent white flashes on the monitor plane).
     if (runtime.canvasStamp === runtime.lastSwappedCanvasStamp) return;
+
+    const now = Date.now();
+
+    // Archive video plays at video frame rate (~24–30 fps). Skip the slow
+    // PROJECTION_TEXTURE_SWAP_MS throttle so frames aren't dropped.
+    // For live snapshot cameras the 1 Hz throttle still applies.
+    const swapIntervalMs = runtime.archiveVideo ? 40 : PROJECTION_TEXTURE_SWAP_MS;
+    if (now - parts.model.safeNumber(runtime.lastTextureSwapAt, 0) < swapIntervalMs) return;
 
     const buffer = paintNextProjectionBuffer(runtime);
     if (!buffer) return;
@@ -282,35 +279,23 @@ export function createFrames({ state: layerState, services, parts, source }) {
 
     const health = layerState._healthById.get(record.camera.id) || null;
 
-    if (runtime.archivePending && !runtime.archiveVideo) {
-      return;
+    if (runtime.archivePending) {
+      return; // Mirror is loading; placeholder was already painted by attachArchiveMirror
     }
 
+    // Archive mirror is ready — draw it onto the projection canvas every frame.
+    // The double-buffer pipeline (refreshProjectionTextures) will push the pixels
+    // to Cesium. Never assign the HTMLVideoElement directly to planeMaterial.image.
     if (runtime.archiveVideo) {
-      const video = runtime.archiveVideo;
+      const av = runtime.archiveVideo;
       if (
-        video.readyState >= 2 &&
-        video.videoWidth > 0 &&
-        video.videoHeight > 0
+        av.readyState >= 2 &&
+        av.videoWidth > 0 &&
+        av.videoHeight > 0
       ) {
-        try {
-          runtime.ctx.clearRect(
-            0,
-            0,
-            PROJECTION_CANVAS_WIDTH,
-            PROJECTION_CANVAS_HEIGHT,
-          );
-          runtime.ctx.drawImage(
-            video,
-            0,
-            0,
-            PROJECTION_CANVAS_WIDTH,
-            PROJECTION_CANVAS_HEIGHT,
-          );
-          runtime.canvasStamp = (runtime.canvasStamp || 0) + 1;
-        } catch {
-          // Ignore tainted video frames if origin changed
-        }
+        runtime.ctx.clearRect(0, 0, PROJECTION_CANVAS_WIDTH, PROJECTION_CANVAS_HEIGHT);
+        runtime.ctx.drawImage(av, 0, 0, PROJECTION_CANVAS_WIDTH, PROJECTION_CANVAS_HEIGHT);
+        runtime.canvasStamp = (runtime.canvasStamp || 0) + 1;
       }
       return;
     }

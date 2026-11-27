@@ -373,11 +373,15 @@ export function createProjection({
           layerState._activeArchive.cameraId === active.camera.id &&
           active.projection &&
           !active.projection.archiveVideo &&
-          !active.projection._archiveCleanup
+          !active.projection._archiveCleanup &&
+          active.projection._archiveFailedUrl !== layerState._activeArchive.url
         ) {
           parts.cards.ensureArchiveSyncForRecord?.(active);
         }
-        if (active.projection && !active.projection.video) {
+        if (
+          active.projection &&
+          !active.projection.video
+        ) {
           parts.frames.drawProjectionFrame(active);
           parts.frames.refreshProjectionTextures(active);
         }
@@ -419,7 +423,7 @@ export function createProjection({
     for (const record of layerState._records) {
       if (!record.projection?.video) continue;
       if (record.camera.id === activeId && layerState._enabled) {
-        record.projection.video.play().catch(() => {});
+        record.projection.video.play().catch(() => { });
       } else {
         const runtime = record.projection;
         destroyProjectionRuntime(runtime);

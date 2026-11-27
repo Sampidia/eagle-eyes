@@ -448,6 +448,9 @@ export function createCards({ state: layerState, services, parts, source }) {
       runtime._archiveCleanup = null;
     }
     if (runtime.archiveVideo) {
+      if (runtime.planeMaterial) {
+        runtime.planeMaterial.image = runtime.video || runtime.canvas;
+      }
       try {
         runtime.archiveVideo.pause();
         runtime.archiveVideo.removeAttribute('src');
@@ -461,6 +464,9 @@ export function createCards({ state: layerState, services, parts, source }) {
     const runtime = record?.projection;
     if (!runtime || !runtime.planeMaterial) return;
 
+    // Don't retry a URL that already failed both CORS and proxy fallback
+    if (runtime._archiveFailedUrl === url) return;
+
     // Already mirroring or loading this exact URL
     if (
       runtime._archiveSourceUrl === url &&
@@ -470,6 +476,7 @@ export function createCards({ state: layerState, services, parts, source }) {
     }
     teardownArchiveMirror(runtime);
     runtime._archiveSourceUrl = url;
+    runtime._archiveFailedUrl = null;
     runtime.archivePending = true;
 
     // Immediately clear stale live frame on the projection canvas while buffering
@@ -536,6 +543,7 @@ export function createCards({ state: layerState, services, parts, source }) {
         }
         return true;
       }
+      runtime._archiveFailedUrl = url;
       teardownArchiveMirror(runtime);
       return false;
     };
@@ -546,8 +554,10 @@ export function createCards({ state: layerState, services, parts, source }) {
       }
       runtime.archivePending = false;
       runtime.archiveVideo = mirror;
-      runtime.drawnImageStamp = -1;
-      runtime.lastFrameSignature = null;
+      // NOTE: Do NOT assign mirror (HTMLVideoElement) directly to planeMaterial.image —
+      // Cesium crashes with RangeError: Invalid array length. The projection RAF loop
+      // drives the canvas pipeline: drawProjectionFrame draws the video onto runtime.ctx,
+      // then refreshProjectionTextures swaps the double-buffer onto planeMaterial.image.
       syncTime();
       if (!panelVideo.paused) mirror.play().catch(() => {});
       layerState._viewer?.scene?.requestRender?.();
@@ -583,11 +593,14 @@ export function createCards({ state: layerState, services, parts, source }) {
       layerState._activeArchive = null;
       const record = layerState._recordById?.get(cameraId);
       const runtime = record?.projection;
-      if (runtime && (runtime.archiveVideo || runtime._archiveCleanup || runtime.archivePending)) {
-        teardownArchiveMirror(runtime);
-        runtime.drawnImageStamp = -1;
-        runtime.lastFrameSignature = null;
-        layerState._viewer?.scene?.requestRender?.();
+      if (runtime) {
+        runtime._archiveFailedUrl = null;
+        if (runtime.archiveVideo || runtime._archiveCleanup || runtime.archivePending) {
+          teardownArchiveMirror(runtime);
+          runtime.drawnImageStamp = -1;
+          runtime.lastFrameSignature = null;
+          layerState._viewer?.scene?.requestRender?.();
+        }
       }
       return;
     }
