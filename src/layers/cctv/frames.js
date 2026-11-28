@@ -293,9 +293,13 @@ export function createFrames({ state: layerState, services, parts, source }) {
         av.videoWidth > 0 &&
         av.videoHeight > 0
       ) {
-        runtime.ctx.clearRect(0, 0, PROJECTION_CANVAS_WIDTH, PROJECTION_CANVAS_HEIGHT);
-        runtime.ctx.drawImage(av, 0, 0, PROJECTION_CANVAS_WIDTH, PROJECTION_CANVAS_HEIGHT);
-        runtime.canvasStamp = (runtime.canvasStamp || 0) + 1;
+        try {
+          runtime.ctx.clearRect(0, 0, PROJECTION_CANVAS_WIDTH, PROJECTION_CANVAS_HEIGHT);
+          runtime.ctx.drawImage(av, 0, 0, PROJECTION_CANVAS_WIDTH, PROJECTION_CANVAS_HEIGHT);
+          runtime.canvasStamp = (runtime.canvasStamp || 0) + 1;
+        } catch {
+          // Ignore transient/tainted video frame errors so the RAF loop keeps running
+        }
       }
       return;
     }

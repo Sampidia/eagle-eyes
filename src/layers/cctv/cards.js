@@ -459,12 +459,14 @@ export function createCards({ state: layerState, services, parts, source }) {
       runtime.archiveVideo = null;
     }
     runtime.archivePending = false;
+    runtime.drawnImageStamp = -1;
+    runtime.lastFrameSignature = null;
   }
   function attachArchiveMirror(record, { cameraId, mode, panelVideo, url }) {
     const runtime = record?.projection;
     if (!runtime || !runtime.planeMaterial) return;
 
-    // Don't retry a URL that already failed both CORS and proxy fallback
+    // Don't retry a URL that already failed
     if (runtime._archiveFailedUrl === url) return;
 
     // Already mirroring or loading this exact URL
@@ -486,15 +488,31 @@ export function createCards({ state: layerState, services, parts, source }) {
       layerState._viewer?.scene?.requestRender?.();
     }
 
-    // Mirror onto a separate CORS-enabled offscreen <video> so the panel <video>
-    // never needs crossOrigin="anonymous" and always plays reliably.
+    // Strategy: load the archive via our same-origin proxy endpoint which adds
+    // Access-Control-Allow-Origin: * so we can drawImage() the video onto a
+    // WebGL-bound canvas without a SecurityError/taint.
+    //
+    // The panel <video> uses the raw Dropbox/external URL with NO crossOrigin
+    // attribute (no-cors mode) so it always plays. We use a separate offscreen
+    // mirror loaded through our proxy so the WebGL canvas pipeline can read it.
+    //
+    // We first try the direct external URL with crossOrigin=anonymous (works if
+    // the host sends CORS headers). If that fails (error or tainted canvas), we
+    // immediately switch to the proxy endpoint.
+
     const mirror = document.createElement('video');
     mirror.crossOrigin = 'anonymous';
     mirror.muted = true;
     mirror.playsInline = true;
     mirror.preload = 'auto';
 
-    // Bypass any non-CORS HTTP cache entry created by panelVideo
+    const proxyRange = String(mode || '').includes('48') ? '48h' : '24h';
+    // Proxy URL: same-origin Cloudflare Worker that streams with CORS headers
+    const proxyCorsUrl = `/api/cctv/archive/${encodeURIComponent(cameraId)}?range=${proxyRange}&proxy=1`;
+
+    // Build a cache-busted direct URL that bypasses any no-cors cache entry for
+    // the panel video (browser caches keyed by URL+credentials mode).
+    // Skip for signed/token URLs (AWS, Dropbox rlkey) where extra params break auth.
     let directCorsUrl = url;
     try {
       const parsed = new URL(url, window.location.origin);
@@ -508,47 +526,52 @@ export function createCards({ state: layerState, services, parts, source }) {
       }
     } catch {}
 
-    const proxyRange = String(mode || '').includes('48') ? '48h' : '24h';
-    const proxyCorsUrl = `/api/cctv/archive/${encodeURIComponent(cameraId)}?range=${proxyRange}&proxy=1`;
+    // Dropbox / external URLs with rlkey (signed) won't send CORS headers →
+    // skip the direct attempt and go straight to proxy.
+    const skipDirect =
+      /dropbox\.com\//i.test(url) ||
+      /rlkey=/i.test(url) ||
+      /drive\.google\.com\//i.test(url);
+
     let usedProxyFallback = false;
 
     const syncTime = () => {
       if (Math.abs((mirror.currentTime || 0) - (panelVideo.currentTime || 0)) > 0.35) {
-        try {
-          mirror.currentTime = panelVideo.currentTime || 0;
-        } catch {}
+        try { mirror.currentTime = panelVideo.currentTime || 0; } catch {}
       }
     };
-    const onPlay = () => {
-      syncTime();
-      mirror.play().catch(() => {});
-    };
-    const onPause = () => {
-      mirror.pause();
-      syncTime();
-    };
-    const onSeeked = () => syncTime();
+    const onPlay  = () => { syncTime(); mirror.play().catch(() => {}); };
+    const onPause = () => { mirror.pause(); syncTime(); };
+    const onSeeked     = () => syncTime();
     const onTimeUpdate = () => {
-      if (Math.abs((mirror.currentTime || 0) - (panelVideo.currentTime || 0)) > 0.75) {
-        syncTime();
+      if (Math.abs((mirror.currentTime || 0) - (panelVideo.currentTime || 0)) > 0.75) syncTime();
+      if (!panelVideo.paused && mirror.paused && runtime.archiveVideo === mirror) {
+        mirror.play().catch(() => {});
       }
     };
+
     const fallbackToProxy = () => {
       if (!usedProxyFallback) {
         usedProxyFallback = true;
+        // Same-origin /api/... proxy: remove crossOrigin so browser fetches as
+        // same-origin without failing on CORS headers, while keeping canvas untainted.
+        mirror.removeAttribute('crossorigin');
         mirror.src = proxyCorsUrl;
         mirror.load();
-        if (!panelVideo.paused) {
-          mirror.play().catch(() => {});
-        }
+        if (!panelVideo.paused) mirror.play().catch(() => {});
         return true;
       }
+      console.warn('[cctv] Archive projection mirror failed for', cameraId, proxyCorsUrl);
       runtime._archiveFailedUrl = url;
       teardownArchiveMirror(runtime);
+      layerState._viewer?.scene?.requestRender?.();
       return false;
     };
+
     const onReady = () => {
+      if (runtime.archiveVideo === mirror) return;
       if (!isVideoCorsClean(mirror)) {
+        // Canvas is tainted (CORS blocked on direct URL) — fall back to proxy
         fallbackToProxy();
         return;
       }
@@ -562,30 +585,39 @@ export function createCards({ state: layerState, services, parts, source }) {
       if (!panelVideo.paused) mirror.play().catch(() => {});
       layerState._viewer?.scene?.requestRender?.();
     };
+
     const onError = () => fallbackToProxy();
 
     mirror.addEventListener('loadeddata', onReady);
-    mirror.addEventListener('error', onError);
-    panelVideo.addEventListener('play', onPlay);
-    panelVideo.addEventListener('pause', onPause);
-    panelVideo.addEventListener('seeked', onSeeked);
+    mirror.addEventListener('canplay',    onReady);
+    mirror.addEventListener('error',      onError);
+    panelVideo.addEventListener('play',       onPlay);
+    panelVideo.addEventListener('pause',      onPause);
+    panelVideo.addEventListener('seeked',     onSeeked);
     panelVideo.addEventListener('timeupdate', onTimeUpdate);
 
     runtime._archiveCleanup = () => {
       mirror.removeEventListener('loadeddata', onReady);
-      mirror.removeEventListener('error', onError);
-      panelVideo.removeEventListener('play', onPlay);
-      panelVideo.removeEventListener('pause', onPause);
-      panelVideo.removeEventListener('seeked', onSeeked);
+      mirror.removeEventListener('canplay',    onReady);
+      mirror.removeEventListener('error',      onError);
+      panelVideo.removeEventListener('play',       onPlay);
+      panelVideo.removeEventListener('pause',      onPause);
+      panelVideo.removeEventListener('seeked',     onSeeked);
       panelVideo.removeEventListener('timeupdate', onTimeUpdate);
       runtime._archiveSourceUrl = null;
     };
 
-    mirror.src = directCorsUrl;
-    mirror.load();
-    if (!panelVideo.paused) {
-      mirror.play().catch(() => {});
+    // Load: skip Dropbox/signed URLs directly to same-origin proxy to avoid wasting a
+    // round-trip that we know will fail CORS.
+    if (skipDirect) {
+      usedProxyFallback = true;
+      mirror.removeAttribute('crossorigin');
+      mirror.src = proxyCorsUrl;
+    } else {
+      mirror.src = directCorsUrl;
     }
+    mirror.load();
+    if (!panelVideo.paused) mirror.play().catch(() => {});
   }
   function syncArchiveVideo(cameraId, mode, panelVideo, url) {
     if (!layerState._enabled || !cameraId) return;
